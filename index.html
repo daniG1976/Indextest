@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet">
+    <title>To Do</title>
+    <!-- Lade Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #233d4d !important;
+        }
+
+        .font-gloria {
+            font-family: 'Gloria Hallelujah';
+        }
+
+        /* Definition des Responsive Halben Kreises */
+        .orange-semi-circle {
+            background-color: #fe7f2d;
+            /* **Responsiv durch Viewport Height (vh)** */
+            height: 100vh; 
+            /* Breite: 40% der Viewport-Höhe (ergibt ca. ein Drittel der Fläche) */
+            width: 40vh;  
+            
+            /* Radius muss gleich der Breite sein, um perfekten Halbkreis zu bilden */
+            border-top-left-radius: 40vh;
+            border-bottom-left-radius: 40vh;    
+            
+            /* Positionierung */
+            position: fixed; 
+            right: 0;
+            top: 50%; /* Vertikal zentrieren */
+            transform: translateY(-50%); 
+            z-index: 0; /* Im Hintergrund */
+            opacity: 0.80; 
+        }
+
+    </style>
+</head>
+<body class="bg-[#233d4d] text-white min-h-screen flex flex-col items-center p-4">
+    <!-- 1. Der Orange Halbkreis (Hintergrund) - Jetzt auf allen Geräten sichtbar -->
+    <div class="orange-semi-circle"></div>
+
+    <!-- 2. Haupt-Inhalts-Wrapper (Muss über dem Halbkreis liegen: z-10) -->
+    <div class="main-content-wrapper w-full max-w-lg z-10 flex flex-col items-center">
+        <header class="text-center mb-8 w-full">
+            <!-- Textfarbe auf Weiß gesetzt für optimalen Kontrast auf Orange -->
+            <h1 class="font-gloria text-5xl font-extrabold text-[#fe7f2d] mb-2">
+                🚀 Meine To Dos
+            </h1>
+        </header>
+
+    <div id="todo-list" class="w-full max-w-lg space-y-4 z-10"></div>
+
+     <!-- FLOATING ACTION BUTTON (FAB) -->
+    <button id="fab-button" 
+            class="fixed bottom-6 
+                   right-1/2 transform translate-x-1/2 
+                   w-14 h-14 
+                   rounded-full 
+                   bg-[#fe7f2d] text-[#233d4d]
+                   shadow-xl 
+                   flex items-center justify-center text-3xl font-bold 
+                   transition-all duration-300 
+                   hover:scale-110 active:scale-95 
+                   z-50">
+        <!-- Lucide Plus Icon, häufig in FABs verwendet -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14"/><path d="M12 5v14"/>
+        </svg>
+    </button>
+    <!-- ENDE FAB -->
+
+    <!-- 🔥 NEUES BOTTOM SHEET -->
+    <div id="bottom-sheet" 
+        class="fixed inset-0 z-[100] hidden">
+
+        <!-- Sheet-Container -->
+        <div id="bottom-sheet-container"
+            class="absolute bottom-0 left-0 right-0 
+                    bg-[#fe7f2d]/30       /* Orange, 30% Opacity */
+                    backdrop-blur-xl       /* Starker Blur für Glassmorphism */
+                    rounded-t-3xl shadow-2xl
+                    p-6 
+                    transform translate-y-full 
+                    transition-transform duration-300">
+            <!-- Close Button oben rechts -->
+            <button id="close-bottom-sheet-button"
+                    class="absolute top-4 right-4 text-[#233d4d] hover:text-gray-800">
+                <!-- kleines X-Icon im iOS/Material-Stil -->
+                <svg xmlns="http://www.w3.org/2000/svg" 
+                    width="24" height="24" viewBox="0 0 24 24" 
+                    fill="none" stroke="currentColor" 
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+
+            <!-- kleiner "Grabber" -->
+            <div class="w-12 h-1.5 bg-[#233d4d] rounded-full mx-auto mb-2"></div>
+
+             <!-- Modal Header -->
+            <h3 class="text-3xl font-bold text-[#233d4d] mb-4">
+                <span class="font-gloria text-3xl mr-3">📝 Neues To-Do erfassen</span>   
+            </h3>
+            <!-- Textarea -->
+            <textarea id="unified-todo-input"
+                    class="w-full h-12 p-3 rounded-xl bg-white/10 backdrop-blur-sm text-[#233d4d] resize-none 
+                            placeholder-[#233d4d] font-gloria focus:outline-none focus:ring-2 focus:ring-blue-700 transition duration-150 shadow-inner mb-4"
+                    placeholder="Neues To-Do eintragen..."></textarea>
+
+
+            <!-- Button-Leiste: Record & Photo & Save -->
+            <div class="flex justify-center space-x-16 pt-2">
+                <!-- Mikrofon (Press-and-Hold) -->
+                <button id="record-button"
+                        class="w-14 h-14 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-white shadow-xl transition duration-150 disabled:opacity-50 flex items-center justify-center text-2xl active:recording-pulse"
+                        title="Halten Sie die Maustaste gedrückt, um aufzunehmen">
+                    <span class="z-10">🎤</span>
+                </button>
+
+                <!-- Foto / Galerie Button -->
+                <button id="photo-button"
+                        class="w-14 h-14 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-white shadow-xl transition duration-150 flex items-center justify-center text-2xl"
+                        title="Bilder hinzufügen">
+                    <span class="text-xl">📷</span>
+                    <input type="file" id="image-upload" accept="image/*" class="hidden" multiple>
+                </button>
+
+                <!-- Add / Save Button (Primary Action - Plus Icon) -->
+                <button id="save-unified-button"
+                        class="w-14 h-14 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-white shadow-xl transition duration-150 disabled:opacity-50 flex items-center justify-center text-3xl font-bold"
+                        title="Aufgabe speichern">
+                    ➕
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // *** Frontend-Logik: Aufnahme, Base64-Kodierung & Senden an Python-Backend ***
+        
+        // Konstanten für UI-Elemente
+        const statusText = document.getElementById('status-text');
+        const recordButton = document.getElementById('record-button');
+        const resultText = document.getElementById('result-text');
+        const base64Size = document.getElementById('base64-size');
+        const statusContainer = document.getElementById('status-container');
+        const fabButton = document.getElementById('fab-button'); 
+        const bottomSheet = document.getElementById("bottom-sheet");
+        const bottomSheetContainer = document.getElementById("bottom-sheet-container");
+        const closeBottomSheetButton = document.getElementById("close-bottom-sheet-button");
+        const input = document.getElementById("unified-todo-input");
+        const saveButton = document.getElementById("save-unified-button");
+        const todoList = document.getElementById("todo-list");
+
+        let mediaRecorder;
+        let audioChunks = [];
+        let stream;
+        
+        // Versucht zuerst MP4 (besser für iOS/Safari) und fällt auf WebM zurück
+        // WICHTIG: Die Wahl hier wird an das Backend gesendet, um das korrekte Google-Encoding zu setzen.
+        const preferredMimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
+
+
+        function openBottomSheet() {
+            bottomSheet.classList.remove("hidden");
+
+            // erst runterholen
+            bottomSheetContainer.classList.remove("translate-y-full");
+
+            // Pop-Animation sauber resetten
+            bottomSheetContainer.classList.remove("bottom-sheet-pop");
+            void bottomSheetContainer.offsetWidth; 
+            bottomSheetContainer.classList.add("bottom-sheet-pop");
+        }
+
+        fabButton.addEventListener("click", openBottomSheet);
+
+        
+        function closeBottomSheet() {
+            bottomSheetContainer.classList.remove("bottom-sheet-pop");
+            bottomSheetContainer.classList.add("translate-y-full");
+
+            setTimeout(() => {
+                bottomSheet.classList.add("hidden");
+            }, 300);
+        }
+
+
+        closeBottomSheetButton.addEventListener("click", closeBottomSheet);
+
+
+        saveButton.addEventListener("click", () => {
+            const text = input.value.trim();
+            if (!text) return;
+
+            createTodoCard(text);
+            input.value = ""; // leeren
+
+            closeBottomSheet(); // ← das ist jetzt alles
+        });
+
+        function enableSwipe(card) {
+            let startX = 0;
+            let currentX = 0;
+            let isDragging = false;
+            const threshold = 150; // weiter ziehen, bevor gelöscht wird
+            const maxShift = 300;  // maximale Verschiebung für Farbprogression
+
+            function start(positionX) {
+                startX = positionX;
+                isDragging = true;
+                card.style.transition = "none";
+            }
+
+            function move(positionX) {
+                if (!isDragging) return;
+                currentX = positionX - startX;
+                card.style.transform = `translateX(${currentX}px)`;
+
+                // --- Progressive Dark Red ---
+                const intensity = Math.min(Math.abs(currentX) / maxShift, 1); // 0..1
+                const redValue = Math.floor(255 * intensity);
+                card.style.background = `linear-gradient(to right, rgba(${redValue},0,0,0.8), rgba(254,127,45,0.8))`;
+            }
+
+            function end() {
+                isDragging = false;
+                card.style.transition = "0.2s";
+
+                if (Math.abs(currentX) > threshold) {
+                    if (navigator.vibrate) navigator.vibrate(40);
+                    card.style.opacity = "0";
+                    card.style.transform = `translateX(${currentX > 0 ? 200 : -200}px)`;
+                    setTimeout(() => card.remove(), 200);
+                } else {
+                    card.style.transform = "translateX(0)";
+                    card.style.background = "linear-gradient(to right, rgba(35,61,77,0.1), rgba(254,127,45,0.8))";
+                }
+            }
+
+            // --- Touch Events ---
+            card.addEventListener("touchstart", (e) => start(e.touches[0].clientX));
+            card.addEventListener("touchmove", (e) => move(e.touches[0].clientX));
+            card.addEventListener("touchend", end);
+
+            // --- Maus Events ---
+            card.addEventListener("mousedown", (e) => start(e.clientX));
+            window.addEventListener("mousemove", (e) => move(e.clientX));
+            window.addEventListener("mouseup", end);
+        }
+
+
+
+
+
+        function createTodoCard(text) {
+            const wrapper = document.createElement("div");
+            wrapper.className = "swipe-wrapper relative";
+
+            const card = document.createElement("div");
+            card.className = `
+                todo-card
+                bg-gradient-to-r from-[#233d4d]/10 to-[#fe7f2d]/60
+                backdrop-blur-xl
+                text-[#fe7f2d]
+                rounded-2xl p-4 shadow-lg
+                transition-transform duration-300
+                relative z-10
+            `;
+
+            card.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <p class="text-2xl">${text}</p>
+                    <span class="drag-handle text-[#233d4d] text-2xl opacity-90">☰</span>
+                </div>
+            `;
+
+            // 🔥 ROTE LÖSCHFLÄCHE
+            const bg = document.createElement("div");
+            bg.className = `
+                delete-bg absolute inset-0 
+                bg-red-600 rounded-2xl 
+                opacity-0 transition-opacity duration-200
+            `;
+
+            wrapper.appendChild(bg);
+            wrapper.appendChild(card);
+            todoList.appendChild(wrapper);
+
+            enableSwipe(card, bg, wrapper);
+            enableReorder(wrapper);
+
+        }
+
+        function enableReorder(wrapper) {
+            const card = wrapper.querySelector(".todo-card"); 
+            const handle = card.querySelector(".drag-handle");
+            const list = todoList; // Wir wissen, dass es immer todoList ist
+
+            let isDragging = false;
+            let startY = 0;
+            let initialWrapperY = 0; 
+            let initialScrollY = 0; // Speichert die Scrollposition zu Beginn
+
+            function pointerDown(e) {
+                // Ignoriere Klicks, die nicht die linke Maustaste sind (z.B. Rechtsklick)
+                if (e.button === 2) return; 
+
+                e.stopPropagation(); 
+                e.preventDefault();  
+                
+                isDragging = true;
+                startY = e.clientY || e.touches?.[0]?.clientY;
+                initialScrollY = window.scrollY; // Scrollposition erfassen
+
+                // 🔥 LÖSUNG FÜR PROBLEM 2 (Breite und Position fixieren)
+                const rect = wrapper.getBoundingClientRect();
+                
+                wrapper.style.position = 'absolute'; 
+                wrapper.style.width = `${rect.width}px`; // <--- Breite fixieren
+                wrapper.style.left = `${rect.left}px`;   // <--- Linke Position fixieren
+                
+                // Y-Position relativ zum Dokument setzen:
+                initialWrapperY = rect.top + window.scrollY;
+                wrapper.style.top = `${initialWrapperY}px`; 
+
+                wrapper.style.zIndex = '1000';
+                card.style.transition = "none";
+                card.classList.add("opacity-50", "scale-95", "shadow-2xl");
+
+                document.addEventListener("pointermove", pointerMove);
+                document.addEventListener("pointerup", pointerUp);
+            }
+
+            function pointerMove(e) {
+                if (!isDragging) return;
+
+                const y = e.clientY || e.touches?.[0]?.clientY;
+                const delta = y - startY;
+
+                // Verschiebe den Wrapper mit Berücksichtigung der anfänglichen Scroll-Position
+                wrapper.style.top = `${initialWrapperY + delta}px`;
+
+                const cards = [...list.children];
+                const currentCardRect = wrapper.getBoundingClientRect();
+                const currentMiddle = currentCardRect.top + currentCardRect.height / 2;
+
+                cards.forEach(otherWrapper => {
+                    if (otherWrapper === wrapper) return;
+
+                    const rect = otherWrapper.getBoundingClientRect();
+                    const middle = rect.top + rect.height / 2;
+
+                    if (currentMiddle > middle && currentMiddle > rect.top) {
+                        // Verschiebe nach unten
+                        list.insertBefore(wrapper, otherWrapper.nextSibling);
+                    } else if (currentMiddle < middle && currentMiddle < rect.bottom) {
+                        // Verschiebe nach oben
+                        list.insertBefore(wrapper, otherWrapper);
+                    }
+                });
+            }
+
+            function pointerUp() {
+                if (!isDragging) return;
+
+                isDragging = false;
+
+                // 🔥 LÖSUNG FÜR PROBLEM 1 & 2 (Reset der Positionierung)
+                card.style.transition = "0.2s";
+                
+                // Entfernt alle Inline-Styles, um auf die ursprünglichen CSS-Klassen zurückzufallen
+                wrapper.style.removeProperty('position');
+                wrapper.style.removeProperty('top');
+                wrapper.style.removeProperty('left');
+                wrapper.style.removeProperty('width');
+                wrapper.style.removeProperty('z-index'); 
+                
+                card.classList.remove("opacity-50", "scale-95", "shadow-2xl");
+
+                document.removeEventListener("pointermove", pointerMove);
+                document.removeEventListener("pointerup", pointerUp);
+            }
+
+            handle.addEventListener("pointerdown", pointerDown);
+        }
+
+        function updateStatus(message, colorClass = 'text-yellow-300', bgClass = 'bg-gray-700') {
+            statusText.textContent = message;
+            statusContainer.className = `mb-6 p-4 rounded-lg text-center font-mono transition duration-300 ${bgClass}`;
+            statusText.className = colorClass;
+        }
+
+        async function transcribeAudio(base64Audio, mimeType) {
+            updateStatus("Transkription läuft...", 'text-amber-400', 'bg-blue-900');
+            resultText.value = "Sende Audio an Python-Backend zur Verarbeitung...";
+
+            try {
+                // Sendet die Base64-Audiodaten und den MimeType an den Flask-Endpunkt
+                const response = await fetch('/transcribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    // WICHTIG: Senden des MimeType an das Backend
+                    body: JSON.stringify({ audio_base64: base64Audio, mime_type: mimeType })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Erfolgreiche Transkription vom Python-Backend
+                    const transcript = data.transcript;
+                    resultText.value = transcript;
+                    updateStatus("Transkription abgeschlossen!", 'text-green-500', 'bg-green-900');
+                } else {
+                    // Fehler vom Python-Backend
+                    const errorMessage = data.error || "Unbekannter Fehler im Python-Backend.";
+                    resultText.value = `Fehler: ${errorMessage}`;
+                    updateStatus("API-Fehler", 'text-red-500', 'bg-red-900');
+                }
+                
+            } catch (error) {
+                resultText.value = `Netzwerkfehler: Konnte Python-Backend nicht erreichen. (${error.message})`;
+                updateStatus("Netzwerkfehler", 'text-red-500', 'bg-red-900');
+            }
+        }
+
+        // --- WEBRTC LOGIK ---
+
+        function startRecording() {
+            if (!stream) {
+                updateStatus("Fehler: Mikrofon-Stream nicht verfügbar.", 'text-red-500', 'bg-red-900');
+                return;
+            }
+            
+            // Verwende den bevorzugten MimeType
+            mediaRecorder = new MediaRecorder(stream, { mimeType: preferredMimeType });
+            audioChunks = [];
+            
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const mimeType = mediaRecorder.mimeType; // Nimmt den tatsächlich verwendeten MimeType
+                const audioBlob = new Blob(audioChunks, { type: mimeType });
+                const reader = new FileReader();
+                
+                reader.onloadend = () => {
+                    // Base64-Kodierung (teilt den Data-URL-Header ab)
+                    const base64Audio = reader.result.split(',')[1];
+                    
+                    // Größe anzeigen
+                    base64Size.textContent = `Base64-Größe: ${Math.round(base64Audio.length / 1024)} KB (${mimeType})`;
+
+                    // Hier wird der Transkriptionsprozess gestartet
+                    transcribeAudio(base64Audio, mimeType);
+                };
+                reader.readAsDataURL(audioBlob);
+            };
+
+            mediaRecorder.start();
+            updateStatus("Aufnahme läuft... (Klicken Sie auf Stopp)", 'text-red-500', 'bg-red-900');
+            recordButton.disabled = true;
+            stopButton.disabled = false;
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+            stopButton.disabled = true;
+            recordButton.disabled = false;
+            // updateStatus wird nach onstop von mediaRecorder aufgerufen
+        }
+
+        // --- INITIALISIERUNG ---
+
+        async function initRecorder() {
+            try {
+                // Fragt nach der Mikrofonberechtigung
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                updateStatus(`Mikrofon bereit. Aufnahme starten (Bevorzugtes Format: ${preferredMimeType}).`, 'text-green-400', 'bg-gray-700');
+                recordButton.disabled = false;
+                
+                recordButton.addEventListener('click', startRecording);
+                stopButton.addEventListener('click', stopRecording);
+
+            } catch (err) {
+                console.error("Fehler beim Zugriff auf das Mikrofon: ", err);
+                updateStatus("Zugriff auf Mikrofon verweigert. Bitte Berechtigungen prüfen.", 'text-red-500', 'bg-red-900');
+                recordButton.disabled = true;
+            }
+        }
+
+        window.onload = initRecorder;
+
+    </script>
+
+    <style>
+        @keyframes bottomSheetPop {
+            0%   { transform: translateY(100%) scale(0.95); }
+            60%  { transform: translateY(-4px) scale(1.02); }
+            100% { transform: translateY(0) scale(1); }
+        }
+        .bottom-sheet-pop {
+            animation: bottomSheetPop 300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        .todo-card {
+            user-select: none;
+        }
+
+    </style>
+</body>
+</html>
