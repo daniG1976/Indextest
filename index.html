@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="To Dos">
     <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet">
     <title>To Do</title>
     <!-- Lade Tailwind CSS -->
@@ -20,16 +23,16 @@
         /* Definition des Responsive Halben Kreises */
         .orange-semi-circle {
             background-color: #fe7f2d;
-            /* **Responsiv durch Viewport Height (vh)** */
-            height: 100vh; 
-            /* Breite: 40% der Viewport-Höhe (ergibt ca. ein Drittel der Fläche) */
-            width: 40vh;  
             
-            /* Radius muss gleich der Breite sein, um perfekten Halbkreis zu bilden */
-            border-top-left-radius: 40vh;
-            border-bottom-left-radius: 40vh;    
+            /* NEU: Größe basiert auf der Viewport-Breite (z.B. 70% der Breite) */
+            height: 70vw; /* Macht den Durchmesser 70% der Bildschirmbreite */
+            width: 35vw; /* Macht die Breite 35% der Bildschirmbreite */
             
-            /* Positionierung */
+            /* NEU: Radius muss gleich der Breite sein (35vw) */
+            border-top-left-radius: 35vw;
+            border-bottom-left-radius: 35vw;    
+            
+            /* Positionierung (bleibt gleich) */
             position: fixed; 
             right: 0;
             top: 50%; /* Vertikal zentrieren */
