@@ -1,0 +1,9 @@
+{
+  "name": "Meine To Dos",
+  "short_name": "To Dos",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#233d4d",
+  "theme_color": "#fe7f2d"
+}

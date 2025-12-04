@@ -20,19 +20,19 @@
             font-family: 'Gloria Hallelujah';
         }
 
-        /* Definition des Responsive Halben Kreises */
+
         .orange-semi-circle {
             background-color: #fe7f2d;
             
-            /* NEU: Größe basiert auf der Viewport-Breite (z.B. 70% der Breite) */
-            height: 70vw; /* Macht den Durchmesser 70% der Bildschirmbreite */
-            width: 35vw; /* Macht die Breite 35% der Bildschirmbreite */
+            /* NEU: Größere Höhe und relative Breite, um mehr Präsenz zu haben */
+            height: 100vh;  /* Fast die gesamte Viewport-Höhe */
+            width: 20vw;  /* Die Breite basiert nur auf 30% der Viewport-Breite */
             
-            /* NEU: Radius muss gleich der Breite sein (35vw) */
-            border-top-left-radius: 35vw;
-            border-bottom-left-radius: 35vw;    
+            /* Radius muss gleich der Breite sein (30vw) */
+            border-top-left-radius: 30vw;
+            border-bottom-left-radius: 30vw; 
             
-            /* Positionierung (bleibt gleich) */
+            /* Positionierung */
             position: fixed; 
             right: 0;
             top: 50%; /* Vertikal zentrieren */
