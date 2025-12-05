@@ -7,6 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="To Dos">
     <link rel="manifest" href="/manifest.json"> <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet">
+    <link rel="apple-touch-icon" href="/icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet">
     <title>To Do</title>
     <!-- Lade Tailwind CSS -->
@@ -40,6 +41,11 @@
             transform: translateY(-50%); 
             z-index: 0; /* Im Hintergrund */
             opacity: 0.80; 
+        }
+
+        .no-scroll {
+            overflow: hidden; /* Verhindert das Scrollen von Inhalten, die über den Viewport hinausragen */
+            touch-action: none; /* WICHTIG: Deaktiviert alle standardmäßigen Touch-Gesten (wie vertikales Scrollen) */
         }
 
     </style>
@@ -215,9 +221,12 @@
             let currentX = 0;
             let isDragging = false;
             const threshold = 150; // weiter ziehen, bevor gelöscht wird
-            const maxShift = 300;  // maximale Verschiebung für Farbprogression
+            const maxShift = 300;  // maximale Verschiebung für Farbprogression
 
             function start(positionX) {
+                // 🔥 NEU: Scrollen sperren, sobald die Geste beginnt
+                document.body.classList.add('no-scroll'); 
+                
                 startX = positionX;
                 isDragging = true;
                 card.style.transition = "none";
@@ -230,23 +239,42 @@
 
                 // --- Progressive Dark Red ---
                 const intensity = Math.min(Math.abs(currentX) / maxShift, 1); // 0..1
+                // WICHTIG: Die ursprüngliche Logik für den Hintergrund war unsauber.
+                // Wir verwenden eine feste Farbe, die zur roten Farbe wird, wenn man swiped.
                 const redValue = Math.floor(255 * intensity);
-                card.style.background = `linear-gradient(to right, rgba(${redValue},0,0,0.8), rgba(254,127,45,0.8))`;
+                const redHex = Math.min(255, Math.floor(255 * intensity));
+                const originalColor = '#fe7f2d'; // Deine aktuelle Akzentfarbe
+                const swipeColor = `rgb(${redHex}, 0, 0)`; 
+                
+                // Wir setzen die Hintergrundfarbe dynamisch.
+                card.style.background = `linear-gradient(to right, ${swipeColor}, ${originalColor})`;
             }
 
             function end() {
+                if (!isDragging) return;
                 isDragging = false;
+                
+                // 🔥 NEU: Scrollen freigeben, wenn die Geste endet
+                document.body.classList.remove('no-scroll');
+
                 card.style.transition = "0.2s";
 
                 if (Math.abs(currentX) > threshold) {
                     if (navigator.vibrate) navigator.vibrate(40);
                     card.style.opacity = "0";
                     card.style.transform = `translateX(${currentX > 0 ? 200 : -200}px)`;
+                    
+                    // Löschen: Timeout beibehalten
                     setTimeout(() => card.remove(), 200);
                 } else {
+                    // Zurücksetzen:
                     card.style.transform = "translateX(0)";
+                    // Zurück zur ursprünglichen Hintergrundfarbe
                     card.style.background = "linear-gradient(to right, rgba(35,61,77,0.1), rgba(254,127,45,0.8))";
                 }
+                
+                // currentX zurücksetzen, um Fehler bei neuen Gesten zu vermeiden
+                currentX = 0; 
             }
 
             // --- Touch Events ---
@@ -259,9 +287,6 @@
             window.addEventListener("mousemove", (e) => move(e.clientX));
             window.addEventListener("mouseup", end);
         }
-
-
-
 
 
         function createTodoCard(text) {
@@ -318,7 +343,9 @@
                 if (e.button === 2) return; 
 
                 e.stopPropagation(); 
-                e.preventDefault();  
+                e.preventDefault();
+
+                document.body.classList.add('no-scroll');
                 
                 isDragging = true;
                 startY = e.clientY || e.touches?.[0]?.clientY;
@@ -376,6 +403,8 @@
                 if (!isDragging) return;
 
                 isDragging = false;
+
+                document.body.classList.remove('no-scroll');
 
                 // 🔥 LÖSUNG FÜR PROBLEM 1 & 2 (Reset der Positionierung)
                 card.style.transition = "0.2s";
