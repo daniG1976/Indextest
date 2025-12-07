@@ -24,7 +24,12 @@
 
 
         .orange-semi-circle {
-            background-color: #fe7f2d;
+            background: linear-gradient(
+                to bottom,        /* Startet oben und verläuft nach unten */
+                #ff9d47,          /* Helleres Orange (oben) */
+                #fe7f2d,     /* Dein Original-Orange (#fe7f2d) startet bei 60% */
+                #99440b           /* Dunkleres Orange (unten) */
+            );
             
             /* NEU: Größere Höhe und relative Breite, um mehr Präsenz zu haben */
             height: 100vh;  /* Fast die gesamte Viewport-Höhe */
@@ -110,42 +115,45 @@
                 </svg>
             </button>
 
-            <!-- kleiner "Grabber" -->
-            <div class="w-12 h-1.5 bg-[#233d4d] rounded-full mx-auto mb-2"></div>
 
              <!-- Modal Header -->
-            <h3 class="text-3xl font-bold text-[#233d4d] mb-4">
-                <span class="font-gloria text-3xl mr-3">📝 Neues To-Do erfassen</span>   
+            <h3 class="text-3xl font-bold text-[#fe7f2d] mb-4">
+                <span class="font-gloria text-3xl mr-3">📝 Neues To Do</span>   
             </h3>
             <!-- Textarea -->
             <textarea id="unified-todo-input"
-                    class="w-full h-12 p-3 rounded-xl bg-white/10 backdrop-blur-sm text-[#233d4d] resize-none 
-                            placeholder-[#233d4d] font-gloria focus:outline-none focus:ring-2 focus:ring-blue-700 transition duration-150 shadow-inner mb-4"
-                    placeholder="Neues To-Do eintragen..."></textarea>
+                    class="w-full h-12 p-3 rounded-xl bg-white/10 backdrop-blur-sm text-[#fe7f2d] resize-none 
+                            placeholder-[#fe7f2d] font-gloria focus:outline-none focus:ring-2 focus:ring-orange-700 transition duration-150 shadow-inner mb-4"
+                    placeholder="..."></textarea>
 
 
             <!-- Button-Leiste: Record & Photo & Save -->
             <div class="flex justify-center space-x-16 pt-2">
                 <!-- Mikrofon (Press-and-Hold) -->
                 <button id="record-button"
-                        class="w-14 h-14 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-white shadow-xl transition duration-150 disabled:opacity-50 flex items-center justify-center text-2xl active:recording-pulse"
+                        class="w-14 h-14 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-[#fe7f2d] shadow-xl transition duration-150 disabled:opacity-50 flex items-center justify-center text-2xl active:recording-pulse"
                         title="Halten Sie die Maustaste gedrückt, um aufzunehmen">
-                    <span class="z-10">🎤</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 z-10">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <line x1="12" x2="12" y1="19" y2="22"/>
+                    </svg>
                 </button>
 
-                <!-- Foto / Galerie Button -->
                 <button id="photo-button"
-                        class="w-14 h-14 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-white shadow-xl transition duration-150 flex items-center justify-center text-2xl"
+                        class="w-14 h-14 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-[#fe7f2d] shadow-xl transition duration-150 flex items-center justify-center text-2xl"
                         title="Bilder hinzufügen">
-                    <span class="text-xl">📷</span>
-                    <input type="file" id="image-upload" accept="image/*" class="hidden" multiple>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                        <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+                        <circle cx="12" cy="13" r="3"/>
+                    </svg>
                 </button>
 
                 <!-- Add / Save Button (Primary Action - Plus Icon) -->
                 <button id="save-unified-button"
-                        class="w-14 h-14 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-white shadow-xl transition duration-150 disabled:opacity-50 flex items-center justify-center text-3xl font-bold"
+                        class="w-14 h-14 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-[#fe7f2d] shadow-xl transition duration-150 disabled:opacity-50 flex items-center justify-center text-3xl font-bold"
                         title="Aufgabe speichern">
-                    ➕
+                    +
                 </button>
             </div>
 
