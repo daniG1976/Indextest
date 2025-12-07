@@ -440,7 +440,7 @@
             input.value = "Verarbeitung läuft...😄";
 
             try {
-                const response = await fetch('/transcribe', {
+                const response = await fetch(API_BASE_URL + '/transcribe', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ audio_base64: base64Audio, mime_type: mimeType })
