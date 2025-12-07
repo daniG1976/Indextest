@@ -122,7 +122,7 @@
             </h3>
             <!-- Textarea -->
             <textarea id="unified-todo-input"
-                    class="w-full h-12 p-3 rounded-xl bg-white/10 backdrop-blur-sm text-[#fe7f2d] resize-none 
+                    class="w-full h-12 p-3 rounded-xl bg-white/10 backdrop-blur-sm text-[#233d4d] resize-none 
                             placeholder-[#fe7f2d] font-gloria focus:outline-none focus:ring-2 focus:ring-orange-700 transition duration-150 shadow-inner mb-4"
                     placeholder="..."></textarea>
 
@@ -180,6 +180,8 @@
         let mediaRecorder;
         let audioChunks = [];
         let stream;
+        let isRecording = false; 
+
         
         // Versucht zuerst MP4 (besser für iOS/Safari) und fällt auf WebM zurück
         // WICHTIG: Die Wahl hier wird an das Backend gesendet, um das korrekte Google-Encoding zu setzen.
@@ -433,55 +435,72 @@
             handle.addEventListener("pointerdown", pointerDown);
         }
 
-        function updateStatus(message, colorClass = 'text-yellow-300', bgClass = 'bg-gray-700') {
-            statusText.textContent = message;
-            statusContainer.className = `mb-6 p-4 rounded-lg text-center font-mono transition duration-300 ${bgClass}`;
-            statusText.className = colorClass;
-        }
-
         async function transcribeAudio(base64Audio, mimeType) {
-            updateStatus("Transkription läuft...", 'text-amber-400', 'bg-blue-900');
-            resultText.value = "Sende Audio an Python-Backend zur Verarbeitung...";
+            input.value = "Verarbeitung läuft...😄";
 
             try {
-                // Sendet die Base64-Audiodaten und den MimeType an den Flask-Endpunkt
                 const response = await fetch('/transcribe', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    // WICHTIG: Senden des MimeType an das Backend
                     body: JSON.stringify({ audio_base64: base64Audio, mime_type: mimeType })
                 });
 
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Erfolgreiche Transkription vom Python-Backend
                     const transcript = data.transcript;
-                    resultText.value = transcript;
-                    updateStatus("Transkription abgeschlossen!", 'text-green-500', 'bg-green-900');
+                    
+                    // 🔥 KORRIGIERT: Ergebnis in die Textarea schreiben
+                    input.value = transcript; 
+                    input.focus(); 
+                    // ❌ Vorher: updateStatus("Transkription abgeschlossen!", ...);
+                    
                 } else {
-                    // Fehler vom Python-Backend
                     const errorMessage = data.error || "Unbekannter Fehler im Python-Backend.";
-                    resultText.value = `Fehler: ${errorMessage}`;
-                    updateStatus("API-Fehler", 'text-red-500', 'bg-red-900');
+                    // Gib den Fehler im Eingabefeld aus
+                    input.value = `[FEHLER] ${errorMessage}`; 
+                    // ❌ Vorher: updateStatus("API-Fehler", ...);
                 }
                 
             } catch (error) {
-                resultText.value = `Netzwerkfehler: Konnte Python-Backend nicht erreichen. (${error.message})`;
-                updateStatus("Netzwerkfehler", 'text-red-500', 'bg-red-900');
+                // Netzwerkfehler
+                input.value = `[NETZWERKFEHLER] Konnte Backend nicht erreichen. (${error.message})`;
+                // ❌ Vorher: updateStatus("Netzwerkfehler", ...);
             }
         }
 
-        // --- WEBRTC LOGIK ---
-
-        function startRecording() {
+        function startRecording(e) {
+            // 1. Prüfe, ob wir schon aufnehmen oder ob es nicht der Record Button ist.
+            if (isRecording) return;
+            
+            // 2. Wichtig: Verhindert, dass der Browser ein unnötiges Click-Event auslöst,
+            //    aber wir müssen den Pointer Capture setzen.
+            e.preventDefault(); 
+            
+            // 3. Wenn es ein Pointer-Event ist, Capture setzen.
+            if (e.pointerId !== undefined) {
+                // Stellt sicher, dass das pointerup-Event auch außerhalb des Buttons gefeuert wird.
+                e.target.setPointerCapture(e.pointerId); 
+            }
+            
             if (!stream) {
-                updateStatus("Fehler: Mikrofon-Stream nicht verfügbar.", 'text-red-500', 'bg-red-900');
+                input.value = "[FEHLER] Mikrofon nicht bereit. Erlaubnis verweigert?";
                 return;
             }
             
-            // Verwende den bevorzugten MimeType
-            mediaRecorder = new MediaRecorder(stream, { mimeType: preferredMimeType });
+            isRecording = true;
+            recordButton.classList.add('recording-pulse');
+            input.value = "🔴 Aufnahme läuft... Loslassen zum Transkribieren.";
+
+            try {
+                mediaRecorder = new MediaRecorder(stream, { mimeType: preferredMimeType });
+            } catch (error) {
+                input.value = `[FEHLER] MediaRecorder konnte nicht initialisiert werden: ${error.message}`;
+                isRecording = false;
+                recordButton.classList.remove('recording-pulse');
+                return;
+            }
+
             audioChunks = [];
             
             mediaRecorder.ondataavailable = event => {
@@ -489,58 +508,68 @@
             };
 
             mediaRecorder.onstop = () => {
-                const mimeType = mediaRecorder.mimeType; // Nimmt den tatsächlich verwendeten MimeType
+                if (audioChunks.length === 0) {
+                    input.value = "[HINWEIS] Aufnahme zu kurz oder keine Daten erfasst.";
+                    return;
+                }
+
+                const mimeType = mediaRecorder.mimeType;
                 const audioBlob = new Blob(audioChunks, { type: mimeType });
                 const reader = new FileReader();
                 
                 reader.onloadend = () => {
-                    // Base64-Kodierung (teilt den Data-URL-Header ab)
                     const base64Audio = reader.result.split(',')[1];
-                    
-                    // Größe anzeigen
-                    base64Size.textContent = `Base64-Größe: ${Math.round(base64Audio.length / 1024)} KB (${mimeType})`;
-
-                    // Hier wird der Transkriptionsprozess gestartet
                     transcribeAudio(base64Audio, mimeType);
                 };
                 reader.readAsDataURL(audioBlob);
             };
 
             mediaRecorder.start();
-            updateStatus("Aufnahme läuft... (Klicken Sie auf Stopp)", 'text-red-500', 'bg-red-900');
-            recordButton.disabled = true;
-            stopButton.disabled = false;
+            console.log("Aufnahme gestartet...");
         }
 
-        function stopRecording() {
+        function stopRecording(e) {
+            if (!isRecording) return;
+            
+            isRecording = false; 
+            recordButton.classList.remove('recording-pulse');
+
+            // Wenn Pointer Capture gesetzt wurde, muss es freigegeben werden.
+            if (e.pointerId !== undefined) {
+                e.target.releasePointerCapture(e.pointerId);
+            }
+            
             if (mediaRecorder && mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
+                console.log("Aufnahme gestoppt. Starte Transkription...");
             }
-            stopButton.disabled = true;
-            recordButton.disabled = false;
-            // updateStatus wird nach onstop von mediaRecorder aufgerufen
         }
 
         // --- INITIALISIERUNG ---
 
         async function initRecorder() {
             try {
-                // Fragt nach der Mikrofonberechtigung
                 stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                updateStatus(`Mikrofon bereit. Aufnahme starten (Bevorzugtes Format: ${preferredMimeType}).`, 'text-green-400', 'bg-gray-700');
+                console.log(`Mikrofon bereit. Format: ${preferredMimeType}`);
                 recordButton.disabled = false;
                 
-                recordButton.addEventListener('click', startRecording);
-                stopButton.addEventListener('click', stopRecording);
+                // 🔥 WICHTIG: pointerdown/pointerup verwenden, aber nur auf dem Button lauschen
+                recordButton.addEventListener('pointerdown', startRecording); 
+                recordButton.addEventListener('pointerup', stopRecording); 
+                
+                // Fügt das stop-Event zum Dokument hinzu, falls der Benutzer außerhalb loslässt (Desktop).
+                // ACHTUNG: Wir nutzen hier KEIN pointerup, da wir setPointerCapture verwenden,
+                // was das pointerup an den Button zurücksendet, auch wenn außerhalb losgelassen wird.
+                // Das document-level stopRecording (wie in der vorherigen Version) ist hier nicht mehr nötig.
 
             } catch (err) {
                 console.error("Fehler beim Zugriff auf das Mikrofon: ", err);
-                updateStatus("Zugriff auf Mikrofon verweigert. Bitte Berechtigungen prüfen.", 'text-red-500', 'bg-red-900');
+                input.value = "⚠️ Fehler: Mikrofonberechtigung verweigert oder Gerät nicht gefunden.";
                 recordButton.disabled = true;
             }
         }
-
         window.onload = initRecorder;
+
 
     </script>
 
