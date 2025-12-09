@@ -53,6 +53,14 @@
             touch-action: none; /* WICHTIG: Deaktiviert alle standardmäßigen Touch-Gesten (wie vertikales Scrollen) */
         }
 
+        .modal-sheet * {
+            /* Deaktiviert die Markierung von Text innerhalb des Modal sheets */
+            -webkit-user-select: none;  /* Für Safari/Chrome */
+            -moz-user-select: none;     /* Für Firefox */
+            -ms-user-select: none;      /* Für IE/Edge */
+            user-select: none;
+        }
+
     </style>
 </head>
 <body class="bg-[#233d4d] text-white min-h-screen flex flex-col items-center p-4">
@@ -491,7 +499,7 @@
             
             isRecording = true;
             recordButton.classList.add('recording-pulse');
-            input.value = "🔴 Aufnahme läuft... Loslassen zum Transkribieren.";
+            input.value = "🔥 Aufnahme läuft... ";
 
             try {
                 mediaRecorder = new MediaRecorder(stream, { mimeType: preferredMimeType });

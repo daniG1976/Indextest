@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Anwendung initialisieren
-app = Flask(__name__)
+app = Flask(__name__, static_folder='.', static_url_path='')
 
 # Umgebungsvariable GOOGLE_API_KEY laden (von Render)
 GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', 'API_KEY_NOT_SET')
