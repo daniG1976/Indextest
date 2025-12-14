@@ -50,6 +50,7 @@
             transform: translateY(-50%); 
             z-index: 0; /* Im Hintergrund */
             opacity: 0.80; 
+            pointer-events: none;
         }
 
         .no-scroll {
@@ -76,7 +77,7 @@
         }
 
         .scrolled-header {
-            background-color: rgba(35, 61, 77, 0.9);           
+            background: linear-gradient(to right, rgba(35, 61, 77, 0.9) 89%, transparent 89%);       
             /* 🔥 FIX: Blur auf 20px erhöht (stärkerer Effekt) */
             backdrop-filter: blur(20px); 
             -webkit-backdrop-filter: blur(20px); 
@@ -85,19 +86,22 @@
     </style>
 </head>
 <body class="bg-[#233d4d] text-white min-h-screen flex flex-col items-center">
-    <div class="orange-semi-circle z-50"></div> 
+    <div class="orange-semi-circle"></div> 
     <div id="sticky-header" 
-         class="fixed top-0 left-0 right-0 z-40 
-                px-4                         bg-[#233d4d] 
-                transition-all duration-300"> <div class="w-full max-w-lg mx-auto">
+        class="fixed top-0 left-0 right-0 z-40 px-4 
+                /* 🔥 KORREKTUR 1: Hintergrundfarbe HIER ENTFERNEN */ 
+                transition-all duration-300"
+        style="background: linear-gradient(to right, #233d4d 89%, transparent 89%);">
+        
+        <div class="w-full max-w-lg mx-auto bg-[#233d4d]"> 
             <h1 id="main-title" 
                 class="font-gloria text-5xl font-extrabold text-[#fe7f2d] text-center transition-all duration-300">
                 🚀 Meine To Dos
             </h1>
         </div>
-    </div>   
+    </div> 
     <div id="header-placeholder" class="w-full max-w-lg h-28"></div>    
-    <div class="main-content-wrapper w-full max-w-lg z-10 flex flex-col items-center p-4">       
+    <div class="main-content-wrapper w-full max-w-lg z-10 flex flex-col items-center p-4 bg-[#233d4d]">       
         <div id="todo-list" class="w-full max-w-lg space-y-4 z-10 mt-2"></div>       
     </div>
 
