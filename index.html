@@ -76,36 +76,30 @@
         }
 
         .scrolled-header {
-            background-color: rgba(35, 61, 77, 0.9); /* Dunkler Hintergrund, leicht transparent */
-            backdrop-filter: blur(10px); /* Der gewünschte Blur-Effekt */
-            -webkit-backdrop-filter: blur(10px); /* Für Safari */
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); 
+            background-color: rgba(35, 61, 77, 0.9);           
+            /* 🔥 FIX: Blur auf 20px erhöht (stärkerer Effekt) */
+            backdrop-filter: blur(20px); 
+            -webkit-backdrop-filter: blur(20px); 
         }
 
     </style>
 </head>
-<body class="bg-[#233d4d] text-white min-h-screen flex flex-col items-center p-4">
-    <!-- 1. Der Orange Halbkreis (Hintergrund) - Jetzt auf allen Geräten sichtbar -->
-    <div class="orange-semi-circle"></div>
-
-    <!-- 2. Haupt-Inhalts-Wrapper (Muss über dem Halbkreis liegen: z-10) -->
-    <body class="bg-[#233d4d] text-white min-h-screen flex flex-col items-center p-4">
-        <div class="orange-semi-circle"></div>
-
-        <div id="sticky-header" 
-            class="fixed top-0 left-0 right-0 z-40 p-4 
-                    bg-[#233d4d]              transition-all duration-200">
-            <div class="w-full max-w-lg mx-auto">
-                <h1 id="main-title" 
-                    class="font-gloria text-5xl font-extrabold text-[#fe7f2d] text-center transition-all duration-200">
-                    🚀 Meine To Dos
-                </h1>
-            </div>
+<body class="bg-[#233d4d] text-white min-h-screen flex flex-col items-center">
+    <div class="orange-semi-circle z-50"></div> 
+    <div id="sticky-header" 
+         class="fixed top-0 left-0 right-0 z-40 
+                px-4                         bg-[#233d4d] 
+                transition-all duration-300"> <div class="w-full max-w-lg mx-auto">
+            <h1 id="main-title" 
+                class="font-gloria text-5xl font-extrabold text-[#fe7f2d] text-center transition-all duration-300">
+                🚀 Meine To Dos
+            </h1>
         </div>
-        <div id="header-placeholder" class="w-full max-w-lg h-24"></div> 
-        <div class="main-content-wrapper w-full max-w-lg z-10 flex flex-col items-center">
-            <div id="todo-list" class="w-full max-w-lg space-y-4 z-10"></div>
-        </div>
+    </div>   
+    <div id="header-placeholder" class="w-full max-w-lg h-28"></div>    
+    <div class="main-content-wrapper w-full max-w-lg z-10 flex flex-col items-center p-4">       
+        <div id="todo-list" class="w-full max-w-lg space-y-4 z-10 mt-2"></div>       
+    </div>
 
      <!-- FLOATING ACTION BUTTON (FAB) -->
     <button id="fab-button" 
