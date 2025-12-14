@@ -77,11 +77,13 @@
         }
 
         .scrolled-header {
-            background: linear-gradient(to right, rgba(35, 61, 77, 0.9) 89%, transparent 89%);       
-            /* 🔥 FIX: Blur auf 20px erhöht (stärkerer Effekt) */
+            /* 🔥 KORREKTUR: Hintergrundfarbe auf 1.0 (blickdicht) setzen, um Karten VOLLSTÄNDIG zu verdecken */
+            background-color: rgb(35, 61, 77); /* Volle Opazität! */
+            
+            /* Blur und Webkit-Blur bleiben erhalten */
             backdrop-filter: blur(20px); 
             -webkit-backdrop-filter: blur(20px); 
-        }
+}
 
     </style>
 </head>
@@ -90,8 +92,8 @@
     <div id="sticky-header" 
         class="fixed top-0 left-0 right-0 z-40 px-4 
                 /* 🔥 KORREKTUR 1: Hintergrundfarbe HIER ENTFERNEN */ 
-                transition-all duration-300"
-        style="background: linear-gradient(to right, #233d4d 89%, transparent 89%);">
+                transition-all duration-300">
+        <div id="header-background" class="w-full max-w-lg mx-auto bg-[#233d4d]"></div>
         
         <div class="w-full max-w-lg mx-auto bg-[#233d4d]"> 
             <h1 id="main-title" 
@@ -214,6 +216,7 @@
         const todoList = document.getElementById("todo-list");
         const stickyHeader = document.getElementById('sticky-header');
         const mainTitle = document.getElementById('main-title');
+        const headerBackground = document.getElementById('header-background');
         const scrollThreshold = 40;
 
         let mediaRecorder;
@@ -221,9 +224,6 @@
         let stream;
         let isRecording = false; 
 
-        
-        // Versucht zuerst MP4 (besser für iOS/Safari) und fällt auf WebM zurück
-        // WICHTIG: Die Wahl hier wird an das Backend gesendet, um das korrekte Google-Encoding zu setzen.
         const preferredMimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
 
         // Blockiert das Kontextmenü/Long-Press-Menü auf dem Button
@@ -256,9 +256,7 @@
             }, 300);
         }
 
-
         closeBottomSheetButton.addEventListener("click", closeBottomSheet);
-
 
         saveButton.addEventListener("click", () => {
             const text = input.value.trim();
@@ -344,21 +342,23 @@
 
         function handleScroll() {
             const scrollY = window.scrollY;
-        
+
             if (scrollY > scrollThreshold) {
                 // Zustand: GESCHRUNPFEN (Sticky/Klein)
-                stickyHeader.classList.add('scrolled-header', 'py-2');
+                // Jetzt auf den NEUEN Hintergrund-Container anwenden!
+                headerBackground.classList.add('scrolled-header', 'py-2'); 
+                
                 mainTitle.classList.remove('text-5xl', 'text-center');
                 mainTitle.classList.add('text-3xl', 'text-left');
                 
             } else {
                 // Zustand: NORMAL (Groß)
-                stickyHeader.classList.remove('scrolled-header', 'py-2');
+                headerBackground.classList.remove('scrolled-header', 'py-2');
+                
                 mainTitle.classList.remove('text-3xl', 'text-left');
                 mainTitle.classList.add('text-5xl', 'text-center');
             }
         }
-
 
         function createTodoCard(text) {
             const wrapper = document.createElement("div");
