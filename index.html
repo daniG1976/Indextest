@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="To Dos">
-    <link rel="manifest" href="/manifest.json"> <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet">
+    <meta name="apple-mobile-web-app-title" content="To Dos">  
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#fe7f2d"> <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet">
     <link rel="apple-touch-icon" href="/icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet">
     <title>To Do</title>
-    <!-- Lade Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { 
@@ -48,7 +48,7 @@
             right: 0;
             top: 50%; /* Vertikal zentrieren */
             transform: translateY(-50%); 
-            z-index: 50; /* Im Hintergrund */
+            z-index: 5; /* Im Hintergrund */
             opacity: 0.80; 
             pointer-events: none;
         }
@@ -90,22 +90,26 @@
 <body class="bg-[#233d4d] text-white min-h-screen flex flex-col items-center">
     <div class="orange-semi-circle"></div> 
     <div id="sticky-header" 
-        class="fixed top-0 left-0 right-0 z-40 px-4 transition-all duration-300"
-        style="padding-top: env(safe-area-inset-top, 16px);">
-        </div>         
-        <div id="full-width-bg" class="absolute inset-0 bg-[#233d4d] transition-all duration-300"
-            style="top: env(safe-area-inset-top, 0px);">
+        class="fixed top-0 left-0 right-0 z-40 transition-all duration-300"
+        style="padding-top: env(safe-area-inset-top, 0px);">
+        
+        <div id="full-width-bg" 
+            class="absolute inset-0 bg-[#233d4d] transition-all duration-300">
         </div>       
-        <div class="w-full max-w-lg mx-auto relative z-10 py-7"> 
-            <h1 id="main-title" 
-                class="font-gloria text-5xl font-extrabold text-[#fe7f2d] text-center transition-all duration-300">
-                🚀 Meine To Dos
-            </h1>
-        </div>      
-    </div>
-    <div id="header-placeholder" class="w-full max-w-lg h-28"
-        style="height: calc(7rem + env(safe-area-inset-top, 0px));">
-    </div>    
+    </div> 
+    <div class="header-content-wrapper w-full max-w-lg mx-auto relative z-10 px-4 pt-7"
+        style="padding-top: calc(1.75rem + env(safe-area-inset-top, 0px));"> 
+        
+        <h1 id="main-title" 
+            class="font-gloria text-5xl font-extrabold text-[#fe7f2d] text-center transition-all duration-300">
+            🚀 Meine To Dos
+        </h1>
+    </div> 
+
+    <div id="header-placeholder" class="w-full max-w-lg"
+        style="height: calc(7rem + env(safe-area-inset-top, 0px)); display: none;">
+    </div> 
+
     <div class="main-content-wrapper w-full max-w-lg z-10 flex flex-col items-center p-4 bg-[#233d4d]">       
         <div id="todo-list" class="w-full max-w-lg space-y-4 z-10 mt-2"></div>       
     </div>
@@ -271,17 +275,19 @@
             closeBottomSheet(); // ← das ist jetzt alles
         });
 
-        function enableSwipe(card) {
+        function enableSwipe(card, bg, wrapper, id) {
             let startX = 0;
             let currentX = 0;
             let isDragging = false;
-            const threshold = 150; // weiter ziehen, bevor gelöscht wird
-            const maxShift = 300;  // maximale Verschiebung für Farbprogression
+            const threshold = 150; 
+            const maxShift = 300; 
 
+            // Referenzen auf die Icons holen
+            const completeIcon = bg.querySelector(`#icon-complete-${id}`);
+            const deleteIcon = bg.querySelector(`#icon-delete-${id}`);
+            
             function start(positionX) {
-                // 🔥 NEU: Scrollen sperren, sobald die Geste beginnt
                 document.body.classList.add('no-scroll'); 
-                
                 startX = positionX;
                 isDragging = true;
                 card.style.transition = "none";
@@ -290,48 +296,78 @@
             function move(positionX) {
                 if (!isDragging) return;
                 currentX = positionX - startX;
+                
+                if (Math.abs(currentX) < 10) return;
+
                 card.style.transform = `translateX(${currentX}px)`;
 
-                // --- Progressive Dark Red ---
-                const intensity = Math.min(Math.abs(currentX) / maxShift, 1); // 0..1
-                // WICHTIG: Die ursprüngliche Logik für den Hintergrund war unsauber.
-                // Wir verwenden eine feste Farbe, die zur roten Farbe wird, wenn man swiped.
-                const redValue = Math.floor(255 * intensity);
-                const redHex = Math.min(255, Math.floor(255 * intensity));
-                const originalColor = '#fe7f2d'; // Deine aktuelle Akzentfarbe
-                const swipeColor = `rgb(${redHex}, 0, 0)`; 
+                const intensity = Math.min(Math.abs(currentX) / maxShift, 1);
                 
-                // Wir setzen die Hintergrundfarbe dynamisch.
-                card.style.background = `linear-gradient(to right, ${swipeColor}, ${originalColor})`;
+                // 1. Hintergrund-Opazität einstellen
+                bg.style.opacity = intensity * 0.9;
+                
+                // Alte Farbkassen entfernen
+                bg.classList.remove('bg-red-600', 'bg-green-600'); 
+                
+                // 2. Richtungserkennung und Anpassung von Farbe/Icon
+                if (currentX > 0) { // SWIPE RECHTS (Erledigen)
+                    bg.classList.add('bg-green-600');
+                    
+                    // Haken zeigen, Mülleimer verstecken
+                    completeIcon.style.opacity = intensity * 1.5 > 1 ? 1 : intensity * 1.5;
+                    deleteIcon.style.opacity = '0';
+
+                } else if (currentX < 0) { // SWIPE LINKS (Löschen)
+                    bg.classList.add('bg-red-600');
+
+                    // Mülleimer zeigen, Haken verstecken
+                    completeIcon.style.opacity = '0';
+                    deleteIcon.style.opacity = intensity * 1.5 > 1 ? 1 : intensity * 1.5;
+                }
+
+                // Textfarbe verändern (optional)
+                if (intensity > 0.5) {
+                    card.classList.remove('text-[#fe7f2d]');
+                    card.classList.add('text-white');
+                } else {
+                    card.classList.remove('text-white');
+                    card.classList.add('text-[#fe7f2d]');
+                }
             }
 
             function end() {
                 if (!isDragging) return;
                 isDragging = false;
                 
-                // 🔥 NEU: Scrollen freigeben, wenn die Geste endet
                 document.body.classList.remove('no-scroll');
-
                 card.style.transition = "0.2s";
 
                 if (Math.abs(currentX) > threshold) {
-                    if (navigator.vibrate) navigator.vibrate(40);
-                    card.style.opacity = "0";
-                    card.style.transform = `translateX(${currentX > 0 ? 200 : -200}px)`;
+                    // Aktion bestätigen
+                    card.style.transform = `translateX(${currentX > 0 ? 500 : -500}px)`;
                     
-                    // Löschen: Timeout beibehalten
-                    setTimeout(() => card.remove(), 200);
+                    // Aktionstyp bestimmen: 'complete' (rechts) oder 'delete' (links)
+                    const actionType = currentX > 0 ? 'complete' : 'delete';
+                    
+                    // Aufruf des zentralen Handlers
+                    setTimeout(() => handleSwipeAction(id, actionType), 200);
+
                 } else {
-                    // Zurücksetzen:
+                    // Zurücksetzen
                     card.style.transform = "translateX(0)";
-                    // Zurück zur ursprünglichen Hintergrundfarbe
-                    card.style.background = "linear-gradient(to right, rgba(35,61,77,0.1), rgba(254,127,45,0.8))";
+                    bg.style.opacity = '0';
+                    bg.classList.remove('bg-red-600', 'bg-green-600');
+                    
+                    // Beide Icons verstecken
+                    completeIcon.style.opacity = '0';
+                    deleteIcon.style.opacity = '0';
+
+                    card.classList.remove('text-white');
+                    card.classList.add('text-[#fe7f2d]');
                 }
                 
-                // currentX zurücksetzen, um Fehler bei neuen Gesten zu vermeiden
                 currentX = 0; 
             }
-
 
             card.addEventListener("touchstart", (e) => start(e.touches[0].clientX));
             card.addEventListener("touchmove", (e) => move(e.touches[0].clientX));
@@ -340,41 +376,97 @@
             card.addEventListener("mousedown", (e) => start(e.clientX));
             window.addEventListener("mousemove", (e) => move(e.clientX));
             window.addEventListener("mouseup", end);
-            window.addEventListener('scroll', handleScroll);
         }
 
         function handleScroll() {
             const scrollY = window.scrollY;
+            // Selektiere den neuen Wrapper, der den Titel enthält
+            const headerContentWrapper = document.querySelector('.header-content-wrapper');
 
             if (scrollY > scrollThreshold) {
                 // Zustand: GESCHRUNPFEN (Sticky/Klein)
-                // Anwendung auf den FULL-WIDTH-BG
+                // 1. Header-Hintergrund blickdicht machen (iOS Safe Area ist schon abgedeckt)
                 headerBackground.classList.add('scrolled-header'); 
                 
+                // 2. Titel schrumpfen und nach links schieben (damit er im Header klebt)
                 mainTitle.classList.remove('text-5xl', 'text-center');
-                mainTitle.classList.add('text-3xl', 'text-left', 'py-2'); // Auch hier padding hinzufügen
+                mainTitle.classList.add('text-3xl', 'text-left');
                 
+                // 3. Den Content-Wrapper nach oben verschieben (der Titel geht aus dem Bild)
+                // Wir verschieben ihn um die Höhe des Titels, bis nur noch der 3XL-Titel klebt.
+                headerContentWrapper.style.transform = `translateY(-${Math.min(scrollY - scrollThreshold, 70)}px)`;
+
             } else {
                 // Zustand: NORMAL (Groß)
                 headerBackground.classList.remove('scrolled-header');
                 
-                mainTitle.classList.remove('text-3xl', 'text-left', 'py-2');
+                mainTitle.classList.remove('text-3xl', 'text-left');
                 mainTitle.classList.add('text-5xl', 'text-center');
+                
+                // Verschiebung komplett entfernen
+                headerContentWrapper.style.transform = `translateY(0)`;
             }
         }
+
+        function handleSwipeAction(id, actionType) {
+            const wrapper = document.getElementById(`card-wrapper-${id}`); 
+            const card = document.getElementById(`card-${id}`); 
+            
+            if (!wrapper || !card) return;
+
+            // ZUKÜNFTIGE LOGIK HIER:
+            if (actionType === 'delete') {
+                console.log(`TASK ${id}: Gelöscht (muss noch in LocalStorage implementiert werden)`);
+                // Hier: LocalStorage-Logik, um die Aufgabe dauerhaft zu entfernen
+            } else if (actionType === 'complete') {
+                console.log(`TASK ${id}: Erledigt (muss noch in LocalStorage implementiert werden)`);
+                // Hier: LocalStorage-Logik, um den 'completed' Status auf true zu setzen
+            }
+
+            // 1. Visuelle Pop-Out-Animation starten
+            // (Die horizontale Verschiebung vom Swipe ist noch aktiv!)
+            card.style.transition = "all 0.15s ease-out";
+            card.style.transform += ' scale(0.9)'; 
+            card.style.opacity = '0';
+            
+            // 2. Vertikales Collapse vorbereiten und starten
+            const wrapperHeight = wrapper.offsetHeight;
+            
+            wrapper.style.height = `${wrapperHeight}px`;
+            wrapper.style.overflow = 'hidden';
+            wrapper.style.transition = 'height 0.3s ease-out, margin 0.3s ease-out';
+            
+            setTimeout(() => {
+                wrapper.style.height = '0';
+                wrapper.style.marginBottom = '0'; 
+            }, 150);
+
+            // 3. DOM-Entfernung
+            const totalDuration = 150 + 300; 
+
+            setTimeout(() => {
+                wrapper.remove();
+                // Hier würde nach dem LocalStorage-Update die Liste neu geladen/aktualisiert werden.
+            }, totalDuration);
+        }
+
         function createTodoCard(text) {
+            const id = Date.now(); 
+
             const wrapper = document.createElement("div");
-            wrapper.className = "swipe-wrapper relative";
+            wrapper.id = `card-wrapper-${id}`;
+            wrapper.className = "swipe-wrapper relative mb-4";
 
             //Datum
             const now = new Date();
             const day = String(now.getDate()).padStart(2, '0');
-            const month = String(now.getMonth() + 1).padStart(2, '0'); // +1, da Monate 0-basiert sind
+            const month = String(now.getMonth() + 1).padStart(2, '0');
             const year = now.getFullYear();
             const formattedDate = `${day}.${month}.${year}`;
             
-            
+            // Innere Karte
             const card = document.createElement("div");
+            card.id = `card-${id}`; // WICHTIG: ID für die Animation
             card.className = `
                 todo-card
                 bg-gradient-to-r from-[#233d4d]/20 to-[#fe7f2d]/90
@@ -396,38 +488,48 @@
                         ${formattedDate}
                     </span>
                 </div>
-            </div>
             `;
 
-            // 🔥 ROTE LÖSCHFLÄCHE
+            // ROTE/GRÜNE AKTIONEN FLÄCHE
             const bg = document.createElement("div");
             bg.className = `
-                delete-bg absolute inset-0 
-                bg-red-600 rounded-2xl 
+                swipe-action-bg absolute inset-0 
+                rounded-2xl 
                 opacity-0 transition-opacity duration-200
+                flex items-center justify-between
+                px-8 /* Abstand für Icons */
+                pointer-events-none                
+            `;
+
+            bg.innerHTML = `
+                <svg id="icon-complete-${id}" class="w-10 h-10 text-white opacity-0 transition-opacity duration-150" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+
+                <svg id="icon-delete-${id}" class="w-10 h-10 text-white opacity-0 transition-opacity duration-150" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+                </svg>
             `;
 
             wrapper.appendChild(bg);
             wrapper.appendChild(card);
             todoList.appendChild(wrapper);
 
-            enableSwipe(card, bg, wrapper);
+            enableSwipe(card, bg, wrapper, id);
             enableReorder(wrapper);
-
         }
 
+        // NEUE, STABILE FUNKTION
         function enableReorder(wrapper) {
             const card = wrapper.querySelector(".todo-card"); 
             const handle = card.querySelector(".drag-handle");
-            const list = todoList; // Wir wissen, dass es immer todoList ist
+            const list = todoList; 
 
             let isDragging = false;
             let startY = 0;
-            let initialWrapperY = 0; 
-            let initialScrollY = 0; // Speichert die Scrollposition zu Beginn
+            let initialWrapperY = 0; // Absolute Y-Position des Wrappers beim Start
 
             function pointerDown(e) {
-                // Ignoriere Klicks, die nicht die linke Maustaste sind (z.B. Rechtsklick)
                 if (e.button === 2) return; 
 
                 e.stopPropagation(); 
@@ -436,18 +538,19 @@
                 document.body.classList.add('no-scroll');
                 
                 isDragging = true;
-                startY = e.clientY || e.touches?.[0]?.clientY;
-                initialScrollY = window.scrollY; // Scrollposition erfassen
+                
+                // 🔥 WICHTIG: Die Y-Position des Zeigers bestimmen
+                startY = e.clientY || e.touches?.[0]?.clientY; 
 
                 // 🔥 LÖSUNG FÜR PROBLEM 2 (Breite und Position fixieren)
                 const rect = wrapper.getBoundingClientRect();
                 
-                wrapper.style.position = 'absolute'; 
-                wrapper.style.width = `${rect.width}px`; // <--- Breite fixieren
-                wrapper.style.left = `${rect.left}px`;   // <--- Linke Position fixieren
+                wrapper.style.position = 'fixed'; // FIXED ist einfacher als absolute + scrollY
+                wrapper.style.width = `${rect.width}px`;
+                wrapper.style.left = `${rect.left}px`;  
                 
-                // Y-Position relativ zum Dokument setzen:
-                initialWrapperY = rect.top + window.scrollY;
+                // Y-Position relativ zum Viewport setzen:
+                initialWrapperY = rect.top; // Wir verwenden 'fixed', daher reicht rect.top
                 wrapper.style.top = `${initialWrapperY}px`; 
 
                 wrapper.style.zIndex = '1000';
@@ -463,28 +566,52 @@
 
                 const y = e.clientY || e.touches?.[0]?.clientY;
                 const delta = y - startY;
-
-                // Verschiebe den Wrapper mit Berücksichtigung der anfänglichen Scroll-Position
+                
+                // 1. Position des gezogenen Elements im Viewport aktualisieren
                 wrapper.style.top = `${initialWrapperY + delta}px`;
 
                 const cards = [...list.children];
-                const currentCardRect = wrapper.getBoundingClientRect();
-                const currentMiddle = currentCardRect.top + currentCardRect.height / 2;
-
-                cards.forEach(otherWrapper => {
-                    if (otherWrapper === wrapper) return;
-
+                
+                // 2. Finde das NÄCHSTE ZIELELEMENT
+                // Wir suchen das erste Element, dessen Mittelpunkt der Zeiger gerade überschreitet.
+                // Davor muss unsere gezogene Karte eingefügt werden.
+                const targetElement = cards.find(otherWrapper => {
+                    // Das gezogene Element selbst ignorieren
+                    if (otherWrapper === wrapper) return false; 
+                    
                     const rect = otherWrapper.getBoundingClientRect();
                     const middle = rect.top + rect.height / 2;
-
-                    if (currentMiddle > middle && currentMiddle > rect.top) {
-                        // Verschiebe nach unten
-                        list.insertBefore(wrapper, otherWrapper.nextSibling);
-                    } else if (currentMiddle < middle && currentMiddle < rect.bottom) {
-                        // Verschiebe nach oben
-                        list.insertBefore(wrapper, otherWrapper);
-                    }
+                    
+                    // TargetElement ist das erste, dessen MITTELPUNKT sich NOCH unter der Pointer-Position (y) befindet, 
+                    // ABER der Pointer ist gerade ÜBER seiner Mitte.
+                    return y < middle;
                 });
+
+                // 3. Tausch basierend auf dem gefundenen Ziel durchführen (nur EINMAL)
+                if (targetElement) {
+                    // Wenn ein Ziel gefunden wurde (z.B. Card 2), ist der Pointer über dessen Mitte.
+                    // FÜGE VOR Card 2 ein.
+                    // Dies funktioniert auch für die 1. Karte (wenn y über ihrer Mitte ist).
+                    if (targetElement.previousElementSibling !== wrapper) {
+                        list.insertBefore(wrapper, targetElement);
+                    }
+                } else {
+                    // Wenn kein Ziel gefunden wurde (d.h. der Pointer ist UNTER allen Elementen):
+                    const lastCard = list.lastElementChild;
+                    
+                    if (lastCard && lastCard !== wrapper) {
+                        const rect = lastCard.getBoundingClientRect();
+                        const middle = rect.top + rect.height / 2;
+
+                        // Prüfe, ob der Pointer wirklich unter der letzten Karte liegt
+                        if (y > middle) {
+                            // FÜGE HINTER dem letzten Element ein.
+                            if (lastCard.nextElementSibling !== wrapper) {
+                                list.insertBefore(wrapper, lastCard.nextSibling);
+                            }
+                        }
+                    }
+                }
             }
 
             function pointerUp() {
@@ -494,10 +621,10 @@
 
                 document.body.classList.remove('no-scroll');
 
-                // 🔥 LÖSUNG FÜR PROBLEM 1 & 2 (Reset der Positionierung)
+                // 🔥 RESET DER POSITIONIERUNG
                 card.style.transition = "0.2s";
                 
-                // Entfernt alle Inline-Styles, um auf die ursprünglichen CSS-Klassen zurückzufallen
+                // Entfernt die 'fixed' Positionierung
                 wrapper.style.removeProperty('position');
                 wrapper.style.removeProperty('top');
                 wrapper.style.removeProperty('left');
@@ -510,6 +637,7 @@
                 document.removeEventListener("pointerup", pointerUp);
             }
 
+            // ACHTUNG: pointerdown/move/up verwenden, um Touch- und Maus-Events zu vereinen
             handle.addEventListener("pointerdown", pointerDown);
         }
 
@@ -647,6 +775,19 @@
             }
         }
         window.onload = initRecorder;
+
+        // 🔥 PWA Service Worker Registrierung
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                // Wir registrieren den Worker mit dem Pfad, wo die Datei liegt
+                navigator.serviceWorker.register('./service-worker.js', { scope: './' })
+                    .then(function(registration) {
+                        console.log('ServiceWorker registriert mit Scope: ', registration.scope);
+                    }, function(err) {
+                        console.log('ServiceWorker Registrierung fehlgeschlagen: ', err);
+                    });
+            });
+        }
 
 
     </script>
