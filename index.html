@@ -22,6 +22,11 @@
             font-family: 'Gloria Hallelujah';
         }
 
+        #main-title {
+            /* Verhindert das Ruckeln der Schrift beim Skalieren */
+            will-change: font-size, padding;
+        }
+
         .text-xxs {
             /* Setzt die Schriftgröße auf 0.625rem (ca. 10px), was kleiner als text-xs (12px) ist */
             font-size: 0.625rem; 
@@ -89,30 +94,24 @@
 </head>
 <body class="bg-[#233d4d] text-white min-h-screen flex flex-col items-center">
     <div class="orange-semi-circle"></div> 
-    <div id="sticky-header" 
-        class="fixed top-0 left-0 right-0 z-40 transition-all duration-300"
+    <header id="sticky-header" 
+        class="fixed top-0 left-0 right-0 z-40 bg-[#233d4d] transition-all duration-300"
         style="padding-top: env(safe-area-inset-top, 0px);">
         
-        <div id="full-width-bg" 
-            class="absolute inset-0 bg-[#233d4d] transition-all duration-300">
-        </div>       
-    </div> 
-    <div class="header-content-wrapper w-full max-w-lg mx-auto relative z-10 px-4 pt-7"
-        style="padding-top: calc(1.75rem + env(safe-area-inset-top, 0px));"> 
-        
-        <h1 id="main-title" 
-            class="font-gloria text-5xl font-extrabold text-[#fe7f2d] text-center transition-all duration-300">
-            🚀 Meine To Dos
-        </h1>
-    </div> 
+        <div class="max-w-lg mx-auto px-4 transition-all duration-300" id="header-inner">
+            <h1 id="main-title" 
+                class="font-gloria text-5xl font-extrabold text-[#fe7f2d] text-center py-6 transition-all duration-300">
+                🚀 Meine To Dos
+            </h1>
+        </div>
+        <div id="header-border" class="w-full h-[1px] bg-white/10 opacity-0 transition-opacity duration-300"></div>
+    </header>
 
-    <div id="header-placeholder" class="w-full max-w-lg"
-        style="height: calc(7rem + env(safe-area-inset-top, 0px)); display: none;">
-    </div> 
+    <div id="header-placeholder" class="w-full h-[160px]"></div>
 
-    <div class="main-content-wrapper w-full max-w-lg z-10 flex flex-col items-center p-4 bg-[#233d4d]">       
-        <div id="todo-list" class="w-full max-w-lg space-y-4 z-10 mt-2"></div>       
-    </div>
+    <main class="w-full max-w-lg mx-auto p-4 relative z-10">
+        <div id="todo-list" class="space-y-4"></div>
+    </main>
 
      <!-- FLOATING ACTION BUTTON (FAB) -->
     <button id="fab-button" 
@@ -222,7 +221,8 @@
         const saveButton = document.getElementById("save-unified-button");
         const todoList = document.getElementById("todo-list");
         const stickyHeader = document.getElementById('sticky-header');
-        const mainTitle = document.getElementById('main-title');
+        const title = document.getElementById('main-title');
+        const border = document.getElementById('header-border');
         const headerBackground = document.getElementById('full-width-bg');
         const scrollThreshold = 40;
 
@@ -378,35 +378,27 @@
             window.addEventListener("mouseup", end);
         }
 
-        function handleScroll() {
-            const scrollY = window.scrollY;
-            // Selektiere den neuen Wrapper, der den Titel enthält
-            const headerContentWrapper = document.querySelector('.header-content-wrapper');
-
-            if (scrollY > scrollThreshold) {
-                // Zustand: GESCHRUNPFEN (Sticky/Klein)
-                // 1. Header-Hintergrund blickdicht machen (iOS Safe Area ist schon abgedeckt)
-                headerBackground.classList.add('scrolled-header'); 
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('sticky-header');
+            const title = document.getElementById('main-title');
+            const border = document.getElementById('header-border');
+            
+            if (window.scrollY > 20) {
+                // Zustand: Gescrollt (WhatsApp Style)
+                title.classList.remove('text-5xl', 'py-6');
+                title.classList.add('text-2xl', 'py-3');
                 
-                // 2. Titel schrumpfen und nach links schieben (damit er im Header klebt)
-                mainTitle.classList.remove('text-5xl', 'text-center');
-                mainTitle.classList.add('text-3xl', 'text-left');
-                
-                // 3. Den Content-Wrapper nach oben verschieben (der Titel geht aus dem Bild)
-                // Wir verschieben ihn um die Höhe des Titels, bis nur noch der 3XL-Titel klebt.
-                headerContentWrapper.style.transform = `translateY(-${Math.min(scrollY - scrollThreshold, 70)}px)`;
-
+                header.classList.add('shadow-2xl');
+                border.classList.replace('opacity-0', 'opacity-100');
             } else {
-                // Zustand: NORMAL (Groß)
-                headerBackground.classList.remove('scrolled-header');
+                // Zustand: Ganz oben
+                title.classList.remove('text-2xl', 'py-3');
+                title.classList.add('text-5xl', 'py-6');
                 
-                mainTitle.classList.remove('text-3xl', 'text-left');
-                mainTitle.classList.add('text-5xl', 'text-center');
-                
-                // Verschiebung komplett entfernen
-                headerContentWrapper.style.transform = `translateY(0)`;
+                header.classList.remove('shadow-2xl');
+                border.classList.replace('opacity-100', 'opacity-0');
             }
-        }
+        });
 
         function handleSwipeAction(id, actionType) {
             const wrapper = document.getElementById(`card-wrapper-${id}`); 
@@ -455,7 +447,7 @@
 
             const wrapper = document.createElement("div");
             wrapper.id = `card-wrapper-${id}`;
-            wrapper.className = "swipe-wrapper relative mb-4";
+            wrapper.className = "swipe-wrapper relative mb-4 bg-transparent";
 
             //Datum
             const now = new Date();
@@ -642,36 +634,37 @@
         }
 
         async function transcribeAudio(base64Audio, mimeType) {
-            input.value = "Verarbeitung läuft...😄";
+            // Besseres Feedback, falls der Server erst hochfahren muss
+            input.value = "Verarbeitung läuft... (Das Backend wacht evtl. gerade auf ☕)";
 
             try {
+                // Setze einen längeren Timeout für den ersten Request nach dem Sleep
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 Sek Zeit geben
+
                 const response = await fetch(API_BASE_URL + '/transcribe', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ audio_base64: base64Audio, mime_type: mimeType })
+                    body: JSON.stringify({ audio_base64: base64Audio, mime_type: mimeType }),
+                    signal: controller.signal
                 });
 
+                clearTimeout(timeoutId);
                 const data = await response.json();
 
                 if (response.ok) {
-                    const transcript = data.transcript;
-                    
-                    // 🔥 KORRIGIERT: Ergebnis in die Textarea schreiben
-                    input.value = transcript; 
+                    input.value = data.transcript; 
                     input.focus(); 
-                    // ❌ Vorher: updateStatus("Transkription abgeschlossen!", ...);
-                    
                 } else {
-                    const errorMessage = data.error || "Unbekannter Fehler im Python-Backend.";
-                    // Gib den Fehler im Eingabefeld aus
-                    input.value = `[FEHLER] ${errorMessage}`; 
-                    // ❌ Vorher: updateStatus("API-Fehler", ...);
+                    input.value = `[FEHLER] ${data.error || "Serverfehler"}`; 
                 }
                 
             } catch (error) {
-                // Netzwerkfehler
-                input.value = `[NETZWERKFEHLER] Konnte Backend nicht erreichen. (${error.message})`;
-                // ❌ Vorher: updateStatus("Netzwerkfehler", ...);
+                if (error.name === 'AbortError') {
+                    input.value = "[TIMEOUT] Das Backend hat zu lange zum Aufwachen gebraucht. Bitte gleich noch mal versuchen!";
+                } else {
+                    input.value = `[NETZWERKFEHLER] ${error.message}`;
+                }
             }
         }
 
@@ -751,9 +744,22 @@
             }
         }
 
-        // --- INITIALISIERUNG ---
+        async function wakeUpBackend() {
+            console.log("Wecke Backend auf...");
+            try {
+                // Wir senden einen einfachen GET-Request an eine (evtl. neue) Health-Route 
+                // oder einfach an dein Haupt-URL. 
+                // Auch wenn es ein 404 gibt, wacht Render trotzdem auf!
+                fetch(API_BASE_URL + '/health').catch(() => {}); 
+                
+                // Alternativ: Ein leerer POST an /transcribe (würde einen Fehler werfen, weckt aber auch)
+            } catch (e) {
+                // Fehler ignorieren, es geht nur um den Ping
+            }
+        }
 
         async function initRecorder() {
+            wakeUpBackend();
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 console.log(`Mikrofon bereit. Format: ${preferredMimeType}`);

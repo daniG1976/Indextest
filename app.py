@@ -31,6 +31,10 @@ def index():
     except FileNotFoundError:
         return "Fehler: Die Datei index.html wurde nicht gefunden. Bitte stellen Sie sicher, dass sie im Verzeichnis liegt.", 500
 
+@app.route('/health', methods=['GET'])
+def health():
+    return {"status": "awake"}, 200
+
 # --- BACKEND (Transkription) ---
 @app.route('/transcribe', methods=['POST'])
 def transcribe_audio():
