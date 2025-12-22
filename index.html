@@ -53,7 +53,7 @@
             right: 0;
             top: 50%; /* Vertikal zentrieren */
             transform: translateY(-50%); 
-            z-index: 5; /* Im Hintergrund */
+            z-index: 0; /* Im Hintergrund */
             opacity: 0.80; 
             pointer-events: none;
         }
@@ -95,7 +95,7 @@
 <body class="bg-[#233d4d] text-white min-h-screen flex flex-col items-center">
     <div class="orange-semi-circle"></div> 
     <header id="sticky-header" 
-        class="fixed top-0 left-0 right-0 z-40 bg-[#233d4d] transition-all duration-300"
+        class="fixed top-0 left-0 right-0 z-40 transition-all duration-300 bg-transparent"
         style="padding-top: env(safe-area-inset-top, 0px);">
         
         <div class="max-w-lg mx-auto px-4 transition-all duration-300" id="header-inner">
@@ -381,22 +381,19 @@
         window.addEventListener('scroll', () => {
             const header = document.getElementById('sticky-header');
             const title = document.getElementById('main-title');
-            const border = document.getElementById('header-border');
             
             if (window.scrollY > 20) {
-                // Zustand: Gescrollt (WhatsApp Style)
-                title.classList.remove('text-5xl', 'py-6');
-                title.classList.add('text-2xl', 'py-3');
-                
-                header.classList.add('shadow-2xl');
-                border.classList.replace('opacity-0', 'opacity-100');
+                // ZUSTAND: GESCROLLT
+                // Jetzt wird der Header blickdicht, um die To-Dos zu verdecken
+                header.style.backgroundColor = '#233d4d'; 
+                title.classList.replace('text-5xl', 'text-2xl');
+                header.classList.add('shadow-xl');
             } else {
-                // Zustand: Ganz oben
-                title.classList.remove('text-2xl', 'py-3');
-                title.classList.add('text-5xl', 'py-6');
-                
-                header.classList.remove('shadow-2xl');
-                border.classList.replace('opacity-100', 'opacity-0');
+                // ZUSTAND: GANZ OBEN
+                // Hier ist der Header unsichtbar, damit man den Deko-Halbkreis sieht!
+                header.style.backgroundColor = 'transparent';
+                title.classList.replace('text-2xl', 'text-5xl');
+                header.classList.remove('shadow-xl');
             }
         });
 
