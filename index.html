@@ -95,16 +95,19 @@
 <body class="bg-[#233d4d] text-white min-h-screen flex flex-col items-center">
     <div class="orange-semi-circle"></div> 
     <header id="sticky-header" 
-        class="fixed top-0 left-0 right-0 z-40 transition-all duration-300 bg-transparent"
+        class="fixed top-0 left-0 right-0 z-40 transition-all duration-300"
         style="padding-top: env(safe-area-inset-top, 0px);">
         
-        <div class="max-w-lg mx-auto px-4 transition-all duration-300" id="header-inner">
+        <div id="header-bg" 
+            class="absolute inset-0 -top-20 transition-all duration-300 pointer-events-none">
+            </div>
+
+        <div class="relative max-w-lg mx-auto px-4 transition-all duration-300" id="header-inner">
             <h1 id="main-title" 
                 class="font-gloria text-5xl font-extrabold text-[#fe7f2d] text-center py-6 transition-all duration-300">
                 🚀 Meine To Dos
             </h1>
         </div>
-        <div id="header-border" class="w-full h-[1px] bg-white/10 opacity-0 transition-opacity duration-300"></div>
     </header>
 
     <div id="header-placeholder" class="w-full h-[160px]"></div>
@@ -379,21 +382,26 @@
         }
 
         window.addEventListener('scroll', () => {
-            const header = document.getElementById('sticky-header');
+            const headerBg = document.getElementById('header-bg');
             const title = document.getElementById('main-title');
             
             if (window.scrollY > 20) {
-                // ZUSTAND: GESCROLLT
-                // Jetzt wird der Header blickdicht, um die To-Dos zu verdecken
-                header.style.backgroundColor = '#233d4d'; 
+                // ZUSTAND: GESCROLLT (Glaseffekt)
+                // Wir nehmen ein transparentes Blau-Grau als Basis
+                headerBg.style.backgroundColor = 'rgba(35, 61, 77, 0.75)'; 
+                headerBg.style.backdropFilter = 'blur(15px)';
+                headerBg.style.webkitBackdropFilter = 'blur(15px)'; // WICHTIG FÜR IPHONE
+                
                 title.classList.replace('text-5xl', 'text-2xl');
-                header.classList.add('shadow-xl');
+                title.classList.replace('py-6', 'py-3');
             } else {
-                // ZUSTAND: GANZ OBEN
-                // Hier ist der Header unsichtbar, damit man den Deko-Halbkreis sieht!
-                header.style.backgroundColor = 'transparent';
+                // ZUSTAND: GANZ OBEN (Alles durchsichtig)
+                headerBg.style.backgroundColor = 'transparent';
+                headerBg.style.backdropFilter = 'none';
+                headerBg.style.webkitBackdropFilter = 'none';
+                
                 title.classList.replace('text-2xl', 'text-5xl');
-                header.classList.remove('shadow-xl');
+                title.classList.replace('py-3', 'py-6');
             }
         });
 
