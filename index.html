@@ -380,8 +380,14 @@
             const iconDelete = bg.querySelector(`#icon-delete-${id}`);
             
             let startX, startY, currentX = 0, intent = null;
-            const SNAP_LEFT = -210; // Weiterer Snap für Brief-Sichtbarkeit
-            const MAX_LEFT = -230;
+            
+            // Werte für iPhone optimiert
+            const SNAP_LEFT = -180; 
+            const MAX_LEFT = -200; // Strengere Begrenzung gegen "Grün-Blitzen"
+
+            bg.style.display = "grid";
+            bg.style.gridTemplateColumns = "2fr 1fr 1fr";
+            bg.style.alignItems = "center";
 
             const onMove = (e) => {
                 const x = e.clientX || (e.touches && e.touches[0].clientX);
@@ -398,6 +404,7 @@
                 }
 
                 if (intent === 'swipe') {
+                    // Hier verhindern wir, dass links mehr als MAX_LEFT gezogen wird
                     currentX = Math.max(MAX_LEFT, Math.min(250, dx));
                     card.style.transform = `translateX(${currentX}px)`;
                     bg.style.opacity = 1;
@@ -409,16 +416,13 @@
                         iconDelete.style.opacity = 0;
                     } else if (currentX < -20) {
                         iconComplete.style.opacity = 0;
-                        if (currentX < -150) { 
+                        if (currentX < -140) { 
                             iconDelete.style.opacity = 1; iconMail.style.opacity = 0.3;
                         } else {
                             iconDelete.style.opacity = 0.3; iconMail.style.opacity = 1;
                         }
-                    } else {
-                        bg.style.opacity = 0;
                     }
-                } 
-                else if (intent === 'sort') {
+                } else if (intent === 'sort') {
                     const rect = wrapper.getBoundingClientRect();
                     if (wrapper.style.position !== 'fixed') {
                         wrapper.style.width = `${rect.width}px`;
@@ -459,25 +463,39 @@
             };
 
             card.addEventListener('pointerdown', (e) => {
-                if (e.target.closest('.drag-handle')) intent = 'sort';
-                startX = e.clientX; startY = e.clientY;
+                // WICHTIG: Wenn auf die Tonne/Brief im Snap-Zustand geklickt wird, Swipe/Sort verhindern!
+                if (e.target.closest('.swipe-action-bg')) return;
+
+                startX = e.clientX;
+                startY = e.clientY;
                 card.style.transition = "none";
+
+                // Sortieren NUR am Handle erlauben
+                if (e.target.closest('.drag-handle')) {
+                    intent = 'sort';
+                } else {
+                    intent = null; // Erst beim Bewegen (onMove) entscheiden, ob Swipe
+                }
+                
                 document.addEventListener('pointermove', onMove);
                 document.addEventListener('pointerup', onUp);
             });
 
-            iconDelete.onclick = (e) => {
+            // iPhone Fix: Nutze pointerdown statt onclick für sofortige Reaktion
+            iconDelete.addEventListener('pointerdown', (e) => {
                 e.stopPropagation();
+                e.preventDefault();
                 card.style.transform = "translateX(-600px)";
                 setTimeout(() => handleSwipeAction(id, "delete"), 200);
-            };
-            iconMail.onclick = (e) => {
+            });
+
+            iconMail.addEventListener('pointerdown', (e) => {
                 e.stopPropagation();
+                e.preventDefault();
                 card.style.transform = "translateX(0)";
                 setTimeout(() => { bg.style.opacity = 0; }, 300);
-            };
+            });
         }
-
 
         async function transcribeAudio(base64Audio, mimeType) {
             // Besseres Feedback, falls der Server erst hochfahren muss
