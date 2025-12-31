@@ -88,7 +88,17 @@
             /* Blur und Webkit-Blur bleiben erhalten */
             backdrop-filter: blur(20px); 
             -webkit-backdrop-filter: blur(20px); 
-}
+        }
+
+        @keyframes voice-pill {
+            0%, 100% { height: 4px; }
+            50% { height: 16px; }
+        }
+
+        .animate-voice-pill {
+            animation: voice-pill 0.6s ease-in-out infinite;
+        }
+        
 
     </style>
 </head>
@@ -206,6 +216,82 @@
         </div>
     </div>
 
+    <div class="fixed bottom-6 right-6 flex flex-col items-end z-[1001]">    
+        <div id="fab-menu-options" class="flex flex-col items-end gap-3 mb-4 hidden opacity-0 translate-y-4 transition-all duration-300">
+            
+            <button id="btn-read-aloud" class="flex items-center gap-2 bg-[#233d4d]/90 backdrop-blur-md text-white px-4 py-2 rounded-full shadow-xl border border-white/10 active:scale-95">
+                <span class="text-sm font-medium font-gloria text-[#fe7f2d] ">Vorlesen</span>
+                <div class="bg-purple-500 p-2 rounded-full">
+                    <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M12 9L7 5H3v14h4l5-4V9z" />
+                    </svg>
+                </div>
+            </button>
+
+            <button id="btn-theme-toggle" class="flex items-center gap-2 bg-[#233d4d]/90 backdrop-blur-md text-white px-4 py-2 rounded-full shadow-xl border border-white/10 active:scale-95">
+                <span id="theme-text" class="text-sm font-medium font-gloria text-[#fe7f2d] ">Hell / Dunkel</span>
+                <div class="bg-amber-400 p-2 rounded-full">
+                    <svg id="theme-icon" class="w-4 h-4 text-[#233d4d]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </div>
+            </button>
+
+            <button id="btn-all-complete" class="flex items-center gap-2 bg-[#233d4d]/90 backdrop-blur-md text-white px-4 py-2 rounded-full shadow-xl border border-white/10 active:scale-95">
+                <span class="text-sm font-medium font-gloria text-[#fe7f2d] ">Alle erledigen</span>
+                <div class="bg-green-500 p-2 rounded-full">
+                    <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>
+                </div>
+            </button>
+            
+            <button id="btn-clear-list" class="flex items-center gap-2 bg-[#233d4d]/90 backdrop-blur-md text-white px-4 py-2 rounded-full shadow-xl border border-white/10 active:scale-95">
+                <span class="text-sm font-medium font-gloria text-[#fe7f2d] ">Liste leeren</span>
+                <div class="bg-red-500 p-2 rounded-full">
+                    <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </div>
+            </button>
+        </div>
+
+        <button id="menu-fab-button" class="w-14 h-14 bg-[#233d4d] text-[#fe7f2d] rounded-full shadow-2xl flex items-center justify-center border border-white/10 active:scale-90 transition-all duration-200">
+            <svg id="menu-icon" class="w-6 h-6 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+            </svg>
+        </button>
+    </div> <div id="custom-confirm" class="fixed inset-0 z-[2000] hidden flex items-center justify-center p-6">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+        <div class="relative bg-[#233d4d] border border-white/10 p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center">
+            <h3 class="font-gloria text-[#fe7f2d] text-2xl mb-4">Wirklich alle Aufgaben löschen?</h3>
+            <div class="flex gap-4">
+                <button id="confirm-cancel" class="flex-1 py-3 rounded-xl bg-white/5 text-white font-semibold">Abbrechen</button>
+                <button id="confirm-delete" class="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold shadow-lg shadow-red-500/30">Löschen</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="voice-player" class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[3000] hidden w-[90%] max-w-xs">
+        <div class="bg-white/10 backdrop-blur-xl border border-white/20 px-5 py-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center justify-between">
+            
+            <div class="flex items-center gap-3">
+                <div class="flex items-end gap-[3px] h-5 w-6">
+                    <div class="w-1 bg-purple-400 animate-voice-pill"></div>
+                    <div class="w-1 bg-purple-400 animate-voice-pill [animation-delay:0.2s]"></div>
+                    <div class="w-1 bg-purple-400 animate-voice-pill [animation-delay:0.4s]"></div>
+                </div>
+                
+                <div class="flex flex-col">
+                    <span class="text-[10px] text-purple-300 font-bold uppercase tracking-widest">Audio Guide</span>
+                    <span class="ont-gloria text-[#fe7f2d] text-sm font-medium">Lese Liste vor...</span>
+                </div>
+            </div>
+
+            <button id="btn-voice-stop" class="bg-red-500/80 hover:bg-red-500 text-white p-2.5 rounded-xl shadow-lg shadow-red-500/20 active:scale-90 transition-all border border-white/10">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
     <script>
         // *** Frontend-Logik: Aufnahme, Base64-Kodierung & Senden an Python-Backend ***
         
@@ -233,6 +319,107 @@
         let audioChunks = [];
         let stream;
         let isRecording = false; 
+
+        const menuFab = document.getElementById('menu-fab-button');
+        const menuOptions = document.getElementById('fab-menu-options');
+        const menuIcon = document.getElementById('menu-icon');
+        const btnClearList = document.getElementById('btn-clear-list');
+        const customConfirm = document.getElementById('custom-confirm');
+        const confirmDeleteBtn = document.getElementById('confirm-delete');
+        const confirmCancelBtn = document.getElementById('confirm-cancel');
+        let isMenuOpen = false;
+
+        menuFab.addEventListener('click', (e) => {
+            e.stopPropagation();
+            isMenuOpen = !isMenuOpen;
+
+            if (isMenuOpen) {
+                menuOptions.classList.remove('hidden');
+                setTimeout(() => {
+                    menuOptions.classList.remove('opacity-0', 'translate-y-4');
+                    menuIcon.style.transform = 'rotate(90deg)';
+                }, 10);
+            } else {
+                closeMenu();
+            }
+        });
+
+        function closeMenu() {
+            isMenuOpen = false;
+            menuOptions.classList.add('opacity-0', 'translate-y-4');
+            menuIcon.style.transform = 'rotate(0deg)';
+            setTimeout(() => {
+                if (!isMenuOpen) menuOptions.classList.add('hidden');
+            }, 300);
+        }
+
+        document.addEventListener('click', (e) => {
+            if (isMenuOpen && !menuFab.contains(e.target) && !menuOptions.contains(e.target)) {
+                closeMenu();
+            }
+        });
+
+        // Die "Liste leeren" Funktion umschreiben:
+        btnClearList.addEventListener('click', () => {
+            closeMenu(); // Erst das kleine Menü zu
+            customConfirm.classList.remove('hidden'); // Dann die große Abfrage auf
+        });
+
+        // Wenn man auf Löschen klickt:
+        confirmDeleteBtn.addEventListener('click', () => {
+            const cards = todoList.querySelectorAll('.swipe-wrapper');
+            cards.forEach((card, index) => {
+                setTimeout(() => {
+                    card.style.transition = "all 0.4s ease";
+                    card.style.transform = "translateX(100%)";
+                    card.style.opacity = "0";
+                    setTimeout(() => card.remove(), 400);
+                }, index * 50);
+            });
+            customConfirm.classList.add('hidden');
+        });
+
+        // Wenn man auf Abbrechen klickt:
+        confirmCancelBtn.addEventListener('click', () => {
+            customConfirm.classList.add('hidden');
+        });
+
+        const btnReadAloud = document.getElementById('btn-read-aloud');
+        const readAloudText = btnReadAloud.querySelector('span');
+        const readAloudIconDiv = btnReadAloud.querySelector('.bg-purple-500');
+        const voicePlayer = document.getElementById('voice-player');
+        const btnVoiceStop = document.getElementById('btn-voice-stop');
+
+                // Stopp-Funktion für den Player
+        btnVoiceStop.addEventListener('click', () => {
+            window.speechSynthesis.cancel();
+            voicePlayer.classList.add('hidden');
+        });
+
+        btnReadAloud.addEventListener('click', () => {
+            closeMenu();
+            const todos = [...todoList.querySelectorAll('.todo-card p')].map(p => p.innerText);
+            let textToRead = "";
+
+            if (todos.length === 0) {
+                textToRead = "Nichts zum Vorlesen da!";
+            } else {
+                textToRead = "Deine Aufgaben sind: " + todos.join(". ");
+                // Player anzeigen, wenn Aufgaben da sind
+                voicePlayer.classList.remove('hidden');
+            }
+
+            const utterance = new SpeechSynthesisUtterance(textToRead);
+            utterance.lang = 'de-DE';
+            
+            utterance.onend = () => {
+                voicePlayer.classList.add('hidden');
+            };
+
+            window.speechSynthesis.speak(utterance);
+        });
+
+
 
         const preferredMimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
 
