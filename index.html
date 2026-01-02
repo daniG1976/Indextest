@@ -10,6 +10,12 @@
     <meta name="theme-color" content="#fe7f2d"> <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet">
     <link rel="apple-touch-icon" href="/icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script>
+    (function() {
+        emailjs.init("dSOZMCQs7JAmYkVao"); 
+    })();
+</script>
     <title>To Do</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -98,8 +104,15 @@
         .animate-voice-pill {
             animation: voice-pill 0.6s ease-in-out infinite;
         }
-        
 
+        .input-error {
+            border: 2px solid #ef4444 !important;
+            color: #ef4444 !important;
+        }
+        .input-error::placeholder {
+            color: #ef4444;
+        }
+        
     </style>
 </head>
 <body class="bg-[#233d4d] text-white min-h-screen flex flex-col items-center">
@@ -216,6 +229,26 @@
         </div>
     </div>
 
+    <div id="email-sheet" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[2000] hidden">
+        <div id="email-sheet-container" class="absolute bottom-0 left-0 right-0 bg-[#233d4d] rounded-t-3xl p-6 transform translate-y-full transition-transform duration-300">
+            <div class="w-12 h-1.5 bg-gray-500/30 rounded-full mx-auto mb-6"></div>
+            <h3 class="text-[#fe7f2d] text-xl font-bold mb-4">An wen senden?</h3>
+            
+            <input type="email" id="recipient-email" placeholder="E-Mail Adresse eingeben..." 
+                class="w-full bg-[#1a2e3a] border-none rounded-xl p-4 text-white mb-4 outline-none focus:ring-2 focus:ring-[#fe7f2d]">
+            
+            <div class="flex gap-3">
+                <button id="cancel-email" class="flex-1 bg-gray-700 text-white p-4 rounded-xl font-bold">Abbrechen</button>
+                <button id="send-email-confirm" class="flex-1 bg-[#fe7f2d] text-[#233d4d] p-4 rounded-xl font-bold">Senden</button>
+            </div>
+
+            <div id="send-success-anim" class="hidden absolute inset-0 bg-[#233d4d] rounded-t-3xl flex flex-col items-center justify-center text-white">
+                <div class="text-5xl mb-2">🚀</div>
+                <p class="font-bold">Unterwegs!</p>
+            </div>
+        </div>
+    </div>
+
     <div class="fixed bottom-6 right-6 flex flex-col items-end z-[900]">    
         <div id="fab-menu-options" class="flex flex-col items-end gap-3 mb-4 hidden opacity-0 translate-y-4 transition-all duration-300">
             
@@ -252,7 +285,7 @@
             </button>
         </div>
 
-        <button id="menu-fab-button" class="w-14 h-14 bg-[#233d4d] text-[#fe7f2d] rounded-full shadow-2xl flex items-center justify-center border border-white/10 active:scale-90 transition-all duration-200">
+        <button id="menu-fab-button" class="w-14 h-14 bg-transparent text-[#233d4d] rounded-full shadow-2xl flex items-center justify-center border border-transparent/10 active:scale-90 transition-all duration-200">
             <svg id="menu-icon" class="w-6 h-6 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
             </svg>
@@ -279,7 +312,7 @@
                 </div>
                 
                 <div class="flex flex-col">
-                    <span class="text-[10px] text-purple-300 font-bold uppercase tracking-widest">Audio Guide</span>
+                    <span class="text-[10px] text-purple-300 font-bold uppercase tracking-widest">Audio</span>
                     <span class="ont-gloria text-[#fe7f2d] text-sm font-medium">Lese Liste vor...</span>
                 </div>
             </div>
@@ -473,6 +506,7 @@
 
         // --- KARTEN ERSTELLUNG ---
         function createTodoCard(text) {
+            console.log("Karte wird erstellt für:", text);
             const id = Date.now(); 
             const wrapper = document.createElement("div");
             wrapper.id = `card-wrapper-${id}`;
@@ -668,19 +702,104 @@
                 document.addEventListener('pointerup', onUp);
             });
 
-            // iPhone Fix: Nutze pointerdown statt onclick für sofortige Reaktion
-            iconDelete.addEventListener('pointerdown', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                card.style.transform = "translateX(-600px)";
-                setTimeout(() => handleSwipeAction(id, "delete"), 200);
-            });
+            // 1. E-Mail Versand Logik
+            let currentMailText = ""; // Merkt sich den Text der aktuellen Karte
 
             iconMail.addEventListener('pointerdown', (e) => {
                 e.stopPropagation();
                 e.preventDefault();
+                
+                currentMailText = card.querySelector('p').innerText.trim().replace(/\s+/g, ' ');
+                
+                // Sheet öffnen
+                const emailSheet = document.getElementById('email-sheet');
+                const container = document.getElementById('email-sheet-container');
+                const emailInput = document.getElementById('recipient-email');
+
+                // DIE NEUE ZEILE: Adresse aus dem Speicher holen (falls vorhanden)
+                const savedEmail = localStorage.getItem('lastRecipient');
+                if (savedEmail) {
+                    emailInput.value = savedEmail;
+                }
+                emailSheet.classList.remove('hidden');
+                setTimeout(() => container.classList.remove('translate-y-full'), 10);
+                
+                // Karte zurückschieben
                 card.style.transform = "translateX(0)";
                 setTimeout(() => { bg.style.opacity = 0; }, 300);
+            });
+
+            document.getElementById('cancel-email').addEventListener('click', closeEmailSheet);
+
+            function closeEmailSheet() {
+                const container = document.getElementById('email-sheet-container');
+                container.classList.add('translate-y-full');
+                setTimeout(() => document.getElementById('email-sheet').classList.add('hidden'), 300);
+            }
+
+            document.getElementById('send-email-confirm').addEventListener('click', () => {
+                const emailInput = document.getElementById('recipient-email');
+                const email = emailInput.value.trim();
+                
+                // Einfache Prüfung der E-Mail
+                if (!email.includes('@') || email.length < 5) {
+                    const originalPlaceholder = emailInput.placeholder;
+                    const originalValue = emailInput.value;
+
+                    emailInput.value = "";
+                    emailInput.placeholder = "⚠️ Ungültige E-Mail Adresse!";
+                    emailInput.classList.add('input-error');
+
+                    // Nach 2 Sekunden alles zurücksetzen
+                    setTimeout(() => {
+                        emailInput.classList.remove('input-error');
+                        emailInput.placeholder = originalPlaceholder;
+                        emailInput.value = originalValue;
+                    }, 2000);
+                    return;
+                }
+
+                if (document.activeElement) document.activeElement.blur();
+
+                const anim = document.getElementById('send-success-anim');
+                anim.classList.remove('hidden');
+
+                emailjs.send('service_p1o2ghl', 'template_bz12gsg', {
+                    to_email: email, 
+                    message: currentMailText,
+                    subject: "Neue Aufgabe für dich"
+                })
+                .then(() => {
+                    localStorage.setItem('lastRecipient', email);
+                    setTimeout(() => {
+                        anim.classList.add('hidden');
+                        closeEmailSheet(); 
+                    }, 1500);
+                })
+                .catch((err) => {
+                    anim.classList.add('hidden');
+                    emailInput.value = "";
+                    emailInput.placeholder = "❌ Sende-Fehler!";
+                    emailInput.classList.add('input-error');
+                    setTimeout(() => emailInput.classList.remove('input-error'), 3000);
+                });
+            });
+
+            // 2. Löschen Logik (Die Tonne)
+            iconDelete.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                console.log("Löschen gedrückt");
+                
+                // Animation für das Löschen
+                wrapper.style.transition = "all 0.4s ease";
+                wrapper.style.transform = "translateX(-100%)";
+                wrapper.style.opacity = "0";
+                
+                setTimeout(() => {
+                    wrapper.remove();
+                }, 400);
             });
         }
 
