@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="To Dos">  
@@ -229,22 +229,22 @@
         </div>
     </div>
 
-    <div id="email-sheet" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[2000] hidden">
-        <div id="email-sheet-container" class="absolute bottom-0 left-0 right-0 bg-[#233d4d] rounded-t-3xl p-6 transform translate-y-full transition-transform duration-300">
+    <div id="email-sheet" class="fixed inset-0 bg-black/40 z-[2000] hidden">
+        <div id="email-sheet-container" class="absolute bottom-0 left-0 right-0 bg-[#233d4d]/30 rounded-t-3xl p-6 transform translate-y-full transition-transform duration-300">
             <div class="w-12 h-1.5 bg-gray-500/30 rounded-full mx-auto mb-6"></div>
-            <h3 class="text-[#fe7f2d] text-xl font-bold mb-4">An wen senden?</h3>
+            <h3 class="text-[#fe7f2d] text-xl font-bold font-gloria mb-4">An wen senden?</h3>
             
             <input type="email" id="recipient-email" placeholder="E-Mail Adresse eingeben..." 
-                class="w-full bg-[#1a2e3a] border-none rounded-xl p-4 text-white mb-4 outline-none focus:ring-2 focus:ring-[#fe7f2d]">
+                class="w-full bg-[#1a2e3a] border-none rounded-xl p-4 text-[#fe7f2d] mb-4 font-gloria outline-none focus:ring-2 focus:ring-[#fe7f2d]">
             
             <div class="flex gap-3">
-                <button id="cancel-email" class="flex-1 bg-gray-700 text-white p-4 rounded-xl font-bold">Abbrechen</button>
-                <button id="send-email-confirm" class="flex-1 bg-[#fe7f2d] text-[#233d4d] p-4 rounded-xl font-bold">Senden</button>
+                <button id="cancel-email" class="flex-1 bg-gray-700 text-[#fe7f2d] p-4 rounded-xl font-bold font-gloria">Abbrechen</button>
+                <button id="send-email-confirm" class="flex-1 bg-[#fe7f2d] text-[#233d4d] p-4 rounded-xl font-bold font-gloria">Senden</button>
             </div>
 
             <div id="send-success-anim" class="hidden absolute inset-0 bg-[#233d4d] rounded-t-3xl flex flex-col items-center justify-center text-white">
-                <div class="text-5xl mb-2">🚀</div>
-                <p class="font-bold">Unterwegs!</p>
+                <div class="text-6xl mb-2">🚀</div>
+                <p class="font-bold font-gloria text-[#fe7f2d]">Unterwegs!</p>
             </div>
         </div>
     </div>
@@ -362,6 +362,20 @@
         const confirmCancelBtn = document.getElementById('confirm-cancel');
         let isMenuOpen = false;
 
+        function triggerHaptic(style = 'light') {
+            // Sicherstellen, dass navigator existiert und vibrate eine Funktion ist
+            if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+                try {
+                    if (style === 'light') navigator.vibrate(10);
+                    else if (style === 'medium') navigator.vibrate(30);
+                    else if (style === 'success') navigator.vibrate([20, 30, 20]);
+                } catch (e) {
+                    // Falls der Browser es doch blockiert, passiert einfach nichts
+                }
+            }
+        }
+        
+        
         menuFab.addEventListener('click', (e) => {
             e.stopPropagation();
             isMenuOpen = !isMenuOpen;
@@ -435,7 +449,7 @@
             let textToRead = "";
 
             if (todos.length === 0) {
-                textToRead = "Nichts zum Vorlesen da!";
+                textToRead = "Nichts zum Vorlesen da, du Dödel!";
             } else {
                 textToRead = "Deine Aufgaben sind: " + todos.join(". ");
                 // Player anzeigen, wenn Aufgaben da sind
@@ -451,8 +465,6 @@
 
             window.speechSynthesis.speak(utterance);
         });
-
-
 
         const preferredMimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
 
@@ -618,14 +630,28 @@
                 const dx = x - startX;
                 const dy = y - startY;
 
-                if (!intent) {
-                    if (Math.abs(dx) > 10) intent = 'swipe';
-                    else if (Math.abs(dy) > 10) intent = 'sort';
-                    return;
+                // Logik: Was will der Nutzer tun?
+                if (!intent || intent === 'waiting') {
+                    // 1. Wenn horizontal bewegt wird -> Immer Swipe
+                    if (Math.abs(dx) > 10) {
+                        intent = 'swipe';
+                    } 
+                    // 2. Wenn vertikal bewegt wird -> NUR sortieren, wenn im pointerdown 'sort' gesetzt wurde
+                    else if (Math.abs(dy) > 10) {
+                        if (intent === 'sort') {
+                            // Alles okay, sortieren läuft weiter
+                        } else {
+                            // Nutzer bewegt vertikal, hat aber nicht das Handle angefasst
+                            // Wir tun nichts und lassen das System evtl. normal scrollen
+                            return; 
+                        }
+                    } else {
+                        return; // Noch nicht genug Bewegung
+                    }
                 }
 
+                // --- SWIPE LOGIK ---
                 if (intent === 'swipe') {
-                    // Hier verhindern wir, dass links mehr als MAX_LEFT gezogen wird
                     currentX = Math.max(MAX_LEFT, Math.min(250, dx));
                     card.style.transform = `translateX(${currentX}px)`;
                     bg.style.opacity = 1;
@@ -643,7 +669,9 @@
                             iconDelete.style.opacity = 0.3; iconMail.style.opacity = 1;
                         }
                     }
-                } else if (intent === 'sort') {
+                } 
+                // --- SORTIER LOGIK ---
+                else if (intent === 'sort') {
                     const rect = wrapper.getBoundingClientRect();
                     if (wrapper.style.position !== 'fixed') {
                         wrapper.style.width = `${rect.width}px`;
@@ -664,19 +692,41 @@
             const onUp = () => {
                 document.removeEventListener('pointermove', onMove);
                 document.removeEventListener('pointerup', onUp);
+
                 if (intent === 'swipe') {
                     card.style.transition = "0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28)";
+
+                    // FALL 1: Karte nach rechts wischen (Erledigt)
                     if (currentX > 160) {
+                        triggerHaptic('success'); 
                         card.style.transform = "translateX(600px)";
-                        setTimeout(() => handleSwipeAction(id, "complete"), 200);
-                    } else if (currentX < -60) {
+                        
+                        // Sicherer Aufruf der Lösch-Funktion
+                        setTimeout(() => {
+                            if (typeof handleSwipeAction === "function") {
+                                handleSwipeAction(id, "complete");
+                            } else {
+                                // Notfall-Löschen, falls die Funktion oben nicht gefunden wird
+                                wrapper.remove();
+                            }
+                        }, 200);
+                    }
+                    
+                    // FALL 2: Karte nach links wischen (Snap für Mail/Löschen)
+                    else if (currentX < -60) {
+                        triggerHaptic('light'); // ⚡ Kurzer "Klick", wenn sie einrastet
                         card.style.transform = `translateX(${SNAP_LEFT}px)`;
-                        iconMail.style.opacity = 1; iconDelete.style.opacity = 1;
-                    } else {
+                        iconMail.style.opacity = 1; 
+                        iconDelete.style.opacity = 1;
+                    } 
+                    
+                    // FALL 3: Zurück in die Mitte
+                    else {
                         card.style.transform = "translateX(0)";
                         setTimeout(() => { if (!intent) bg.style.opacity = 0; }, 300);
                     }
                 } else if (intent === 'sort') {
+                    triggerHaptic('light'); // ✌️ Feedback beim Loslassen der sortierten Karte
                     wrapper.style.cssText = "";
                     card.classList.remove("opacity-50", "scale-95");
                 }
@@ -684,18 +734,19 @@
             };
 
             card.addEventListener('pointerdown', (e) => {
-                // WICHTIG: Wenn auf die Tonne/Brief im Snap-Zustand geklickt wird, Swipe/Sort verhindern!
                 if (e.target.closest('.swipe-action-bg')) return;
 
                 startX = e.clientX;
                 startY = e.clientY;
                 card.style.transition = "none";
 
-                // Sortieren NUR am Handle erlauben
-                if (e.target.closest('.drag-handle')) {
-                    intent = 'sort';
+                // Wir prüfen sofort: Wurde das Handle angefasst?
+                const isHandle = e.target.closest('.drag-handle');
+                
+                if (isHandle) {
+                    intent = 'sort'; // Explizit sortieren
                 } else {
-                    intent = null; // Erst beim Bewegen (onMove) entscheiden, ob Swipe
+                    intent = 'waiting'; // Wir warten ab, ob es ein Swipe wird
                 }
                 
                 document.addEventListener('pointermove', onMove);
@@ -767,7 +818,7 @@
                 emailjs.send('service_p1o2ghl', 'template_bz12gsg', {
                     to_email: email, 
                     message: currentMailText,
-                    subject: "Neue Aufgabe für dich"
+                    subject: "Neue Aufgabe für dich 🚀"
                 })
                 .then(() => {
                     localStorage.setItem('lastRecipient', email);
