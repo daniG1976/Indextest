@@ -9,6 +9,7 @@
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#fe7f2d"> <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet">
     <link rel="apple-touch-icon" href="/icon.png">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <script>
@@ -195,7 +196,10 @@
                             placeholder-[#fe7f2d] font-gloria focus:outline-none focus:ring-2 focus:ring-orange-700 transition duration-150 shadow-inner mb-4"
                     placeholder="..."></textarea>
 
-
+            <input type="file" id="hidden-photo-input" accept="image/*" class="hidden">
+                <div id="photo-preview-container" class="hidden mb-4 flex justify-center">
+                    <img id="photo-preview" src="" class="w-20 h-20 object-cover rounded-xl border-2 border-[#fe7f2d] shadow-lg">
+                </div>
             <!-- Button-Leiste: Record & Photo & Save -->
             <div class="flex justify-center space-x-16 pt-2">
                 <!-- Mikrofon (Press-and-Hold) -->
@@ -347,6 +351,10 @@
         const border = document.getElementById('header-border');
         const headerBackground = document.getElementById('full-width-bg');
         const scrollThreshold = 40;
+        const photoButton = document.getElementById('photo-button');
+        const hiddenPhotoInput = document.getElementById('hidden-photo-input');
+        const photoPreviewContainer = document.getElementById('photo-preview-container');
+        const photoPreview = document.getElementById('photo-preview');
 
         let mediaRecorder;
         let audioChunks = [];
@@ -362,6 +370,32 @@
         const confirmCancelBtn = document.getElementById('confirm-cancel');
         let isMenuOpen = false;
 
+        // --- Supabase Setup ---
+        const SUPABASE_URL = 'https://qpwjshkjlmzdmwfvzqqs.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwd2pzaGtqbG16ZG13ZnZ6cXFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MzQ1NTAsImV4cCI6MjA4MzAxMDU1MH0.7kCRh4HGKleV5caomzw4zcdd91E1gnDjf2DbU3AQlBU';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Diese Funktion ersetzt dein bisheriges lokales Erstellen
+        async function fetchTodos() {
+            // 1. Aus der Cloud laden
+            const { data, error } = await supabaseClient
+                .from('todos')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error("Fehler beim Laden:", error);
+                return;
+            }
+
+            // 2. Liste leeren und neu aufbauen
+            todoList.innerHTML = "";
+            data.forEach(todo => {
+                // Wir nutzen deine bestehende Funktion, geben aber die Cloud-ID und den Text mit
+                createTodoCard(todo.text, todo.id, todo.created_at, todo.image_url);
+            });
+        }
+
         function triggerHaptic(style = 'light') {
             // Sicherstellen, dass navigator existiert und vibrate eine Funktion ist
             if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
@@ -374,8 +408,7 @@
                 }
             }
         }
-        
-        
+               
         menuFab.addEventListener('click', (e) => {
             e.stopPropagation();
             isMenuOpen = !isMenuOpen;
@@ -500,39 +533,103 @@
 
         closeBottomSheetButton.addEventListener("click", closeBottomSheet);
 
-        saveButton.addEventListener("click", () => {
-            const text = input.value.trim();
-            if (!text) return;
+        // 1. Klick auf das Kamera-Icon löst das versteckte Input aus
+        photoButton.addEventListener('click', () => {
+            hiddenPhotoInput.click();
+        });
 
-            try {
-                createTodoCard(text);
-            } catch (e) {
-                console.error("Fehler beim Erstellen der Karte:", e);
-            } finally {
-                // Das hier wird IMMER ausgeführt
-                input.value = ""; 
-                closeBottomSheet();
-                if (document.activeElement) document.activeElement.blur();
+        // 2. Wenn ein Bild ausgewählt wurde: Vorschau zeigen
+        hiddenPhotoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    photoPreview.src = event.target.result;
+                    photoPreviewContainer.classList.remove('hidden'); // Vorschau einblenden
+                };
+                reader.readAsDataURL(file);
             }
         });
 
+        saveButton.addEventListener("click", async () => {
+            const text = input.value.trim();
+            const file = hiddenPhotoInput.files ? hiddenPhotoInput.files[0] : null;
+
+            // Wenn weder Text noch Bild da sind, abbrechen
+            if (!text && !file) return;
+
+            // Button kurz deaktivieren, um Doppel-Klicks während des Uploads zu verhindern
+            saveButton.disabled = true;
+            saveButton.innerText = "..."; 
+
+            try {
+                let imageUrl = null;
+
+                // A. BILD HOCHLADEN (falls vorhanden)
+                if (file) {
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `${Date.now()}.${fileExt}`; // Eindeutiger Name
+
+                    const { data: uploadData, error: uploadError } = await supabaseClient.storage
+                        .from('Photos') // Dein Bucket-Name
+                        .upload(fileName, file);
+
+                    if (uploadError) {
+                        console.error("Upload-Fehler:", uploadError);
+                    } else {
+                        // Öffentliche URL abrufen
+                        const { data: publicUrlData } = supabaseClient.storage
+                            .from('Photos')
+                            .getPublicUrl(fileName);
+                        imageUrl = publicUrlData.publicUrl;
+                    }
+                }
+
+                // B. IN SUPABASE SPEICHERN (mit Text und Bild-URL)
+                const { data, error } = await supabaseClient
+                    .from('todos')
+                    .insert([{ 
+                        text: text, 
+                        status: 'open',
+                        image_url: imageUrl // Die URL aus Schritt A
+                    }])
+                    .select();
+
+                if (!error && data.length > 0) {
+                    // Karte erstellen (Wichtig: imageUrl als 4. Parameter)
+                    createTodoCard(data[0].text, data[0].id, data[0].created_at, data[0].image_url);
+                } else if (error) {
+                    console.error("Datenbank-Fehler:", error);
+                }
+
+            } catch (e) {
+                console.error("Gesamt-Fehler:", e);
+            } finally {
+                // C. AUFRÄUMEN
+                input.value = ""; 
+                hiddenPhotoInput.value = ""; // Datei-Input leeren
+                if (photoPreviewContainer) photoPreviewContainer.classList.add('hidden');
+                saveButton.disabled = false;
+                saveButton.innerText = "+";
+                closeBottomSheet();
+            }
+        });
         // --- KARTEN ERSTELLUNG ---
-        function createTodoCard(text) {
-            console.log("Karte wird erstellt für:", text);
-            const id = Date.now(); 
+        function createTodoCard(text, cloudId = null, createdAt = null, imageUrl = null) {
+            const id = cloudId || Date.now(); 
             const wrapper = document.createElement("div");
             wrapper.id = `card-wrapper-${id}`;
             wrapper.className = "swipe-wrapper relative mb-3 bg-transparent";
 
-            const now = new Date();
-            const formattedDate = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
+            const dateObj = createdAt ? new Date(createdAt) : new Date();
+            const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${dateObj.getFullYear()}`;
 
+            // Hintergrund (Icons) bleibt exakt wie er war
             const bg = document.createElement("div");
             bg.className = "swipe-action-bg absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-200";
             bg.style.display = "grid";
-            bg.style.gridTemplateColumns = "2fr 1fr 1fr"; // 50% | 25% | 25%
+            bg.style.gridTemplateColumns = "2fr 1fr 1fr";
             bg.style.height = "100%"; 
-
             bg.innerHTML = `
                 <div class="flex items-center h-full pl-8"> 
                     <div id="icon-complete-${id}" class="opacity-0 transition-opacity duration-200">
@@ -548,28 +645,39 @@
                     <div id="icon-delete-${id}" class="opacity-0 transition-opacity duration-200">
                         <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 6v14H5V6h14zm-7-3h0a2 2 0 012 2v0H10V5a2 2 0 012-2z"/></svg>
                     </div>
-                </div>
-            `;
+                </div>`;
+
+            // Bild-HTML: Klein und kompakt
+            let imageHtml = "";
+            if (imageUrl) {
+                imageHtml = `
+                    <div class="mt-1 pointer-events-auto">
+                        <img src="${imageUrl}" class="w-16 h-16 object-cover rounded-lg border border-white/20 shadow-sm" onclick="window.open('${imageUrl}', '_blank')">
+                    </div>`;
+            }
 
             const card = document.createElement("div");
             card.id = `card-${id}`;
+            // HIER: Deine Original-Farben und P-Tag Struktur
             card.className = "todo-card h-auto bg-gradient-to-r from-[#233d4d]/20 to-[#fe7f2d]/90 backdrop-blur-xl text-[#fe7f2d] rounded-2xl p-3 shadow-md relative z-10 touch-action-none";
             card.innerHTML = `
                 <div class="flex flex-col h-full justify-between pointer-events-none">
                     <div class="flex justify-between items-start">
-                        <p class="text-lg font-semibold leading-tight pr-4">${text}</p>
+                        <div class="flex flex-col pr-4">
+                            <p class="text-lg font-semibold leading-tight">${text}</p>
+                            ${imageHtml}
+                        </div>
                         <span class="drag-handle text-[#233d4d] text-xl opacity-80 px-2 pointer-events-auto" style="cursor: grab; margin-top: -4px;">☰</span>
                     </div>
                     <div style="margin-top: -2px;"><span class="text-[9px] opacity-60 font-mono tracking-tighter">${formattedDate}</span></div>
-                </div>
-            `;
+                </div>`;
 
             wrapper.appendChild(bg);
             wrapper.appendChild(card);
-            todoList.appendChild(wrapper);
+            todoList.prepend(wrapper); // Nutzt dein bestehendes todoList Element
 
             enableInteract(wrapper, card, id);
-        }     
+        }   
 
         window.addEventListener('scroll', () => {
             const headerBg = document.getElementById('header-bg');
@@ -595,15 +703,23 @@
             }
         });        
 
-        function handleSwipeAction(id, action) {
+        async function handleSwipeAction(id, action) {
             const wrapper = document.getElementById(`card-wrapper-${id}`);
             if (!wrapper) return;
-            wrapper.style.transition = "all 0.3s ease";
-            wrapper.style.height = "0";
-            wrapper.style.marginBottom = "0";
-            wrapper.style.opacity = "0";
-            wrapper.style.transform = "scale(0.9)";
-            setTimeout(() => { wrapper.remove(); }, 300);
+
+            // In der Cloud löschen
+            const { error } = await supabaseClient
+                .from('todos')
+                .delete()
+                .eq('id', id);
+
+            if (!error) {
+                // UI Animation (dein bestehender Code)
+                wrapper.style.transition = "all 0.3s ease";
+                wrapper.style.height = "0";
+                wrapper.style.opacity = "0";
+                setTimeout(() => { wrapper.remove(); }, 300);
+            }
         }
 
         function enableInteract(wrapper, card, id) {
@@ -837,19 +953,32 @@
             });
 
             // 2. Löschen Logik (Die Tonne)
-            iconDelete.addEventListener('pointerdown', (e) => {
+            iconDelete.addEventListener('pointerdown', async (e) => {
                 e.stopPropagation();
                 e.preventDefault();
                 
-                console.log("Löschen gedrückt");
+                console.log("Löschen in Cloud gestartet für ID:", id);
                 
-                // Animation für das Löschen
+                // 1. In Supabase löschen
+                const { error } = await supabaseClient
+                    .from('todos')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) {
+                    console.error("Fehler beim Löschen in Supabase:", error);
+                    alert("Konnte nicht gelöscht werden. Verbindung prüfen!");
+                    return;
+                }
+
+                // 2. Wenn Cloud-Löschung erfolgreich, Animation im UI starten
                 wrapper.style.transition = "all 0.4s ease";
                 wrapper.style.transform = "translateX(-100%)";
                 wrapper.style.opacity = "0";
                 
                 setTimeout(() => {
                     wrapper.remove();
+                    console.log("Karte lokal entfernt");
                 }, 400);
             });
         }
@@ -1001,7 +1130,10 @@
                 recordButton.disabled = true;
             }
         }
-        window.onload = initRecorder;
+        window.onload = () => {
+            initRecorder();
+            fetchTodos(); // Lädt deine To-Dos beim Starten der App
+        };
 
         // 🔥 PWA Service Worker Registrierung
         if ('serviceWorker' in navigator) {
