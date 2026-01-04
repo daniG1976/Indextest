@@ -381,7 +381,7 @@
             const { data, error } = await supabaseClient
                 .from('todos')
                 .select('*')
-                .order('created_at', { ascending: false });
+                .order('position', { ascending: true });
 
             if (error) {
                 console.error("Fehler beim Laden:", error);
@@ -394,6 +394,33 @@
                 // Wir nutzen deine bestehende Funktion, geben aber die Cloud-ID und den Text mit
                 createTodoCard(todo.text, todo.id, todo.created_at, todo.image_url);
             });
+        }
+
+        // REALTIME ABONNEMENT
+        const todoSubscription = supabaseClient
+            .channel('public:todos') // Wir hören auf den Kanal 'todos'
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, (payload) => {
+                console.log('Echtzeit-Änderung erkannt:', payload);
+                
+                // Wir machen es uns hier einfach und effektiv:
+                // Sobald sich IRGENDWAS ändert (Verschoben, Neu, Gelöscht),
+                // laden wir die Liste einmal sauber neu.
+                fetchTodos();
+            })
+            .subscribe();
+
+        // NEU: Diese Funktion schreibt die aktuelle Reihenfolge in die Cloud
+        async function updateOrderInDatabase() {
+            const items = [...todoList.querySelectorAll('.swipe-wrapper')];
+            
+            for (let i = 0; i < items.length; i++) {
+                const id = items[i].getAttribute('data-db-id');
+                await supabaseClient
+                    .from('todos')
+                    .update({ position: i })
+                    .eq('id', id);
+            }
+            console.log("Reihenfolge gespeichert!");
         }
 
         function triggerHaptic(style = 'light') {
@@ -551,33 +578,71 @@
             }
         });
 
+        async function compressImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_SIZE = 1200; // 1200px ist der "Sweet Spot" für Handys
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > MAX_SIZE) {
+                                height *= MAX_SIZE / width;
+                                width = MAX_SIZE;
+                            }
+                        } else {
+                            if (height > MAX_SIZE) {
+                                width *= MAX_SIZE / height;
+                                height = MAX_SIZE;
+                            }
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Wir wandeln das Canvas in ein Blob um (JPEG, 70% Qualität)
+                        canvas.toBlob((blob) => {
+                            resolve(blob);
+                        }, 'image/jpeg', 0.7);
+                    };
+                };
+            });
+        }
+
         saveButton.addEventListener("click", async () => {
             const text = input.value.trim();
             const file = hiddenPhotoInput.files ? hiddenPhotoInput.files[0] : null;
 
-            // Wenn weder Text noch Bild da sind, abbrechen
             if (!text && !file) return;
 
-            // Button kurz deaktivieren, um Doppel-Klicks während des Uploads zu verhindern
             saveButton.disabled = true;
             saveButton.innerText = "..."; 
 
             try {
                 let imageUrl = null;
 
-                // A. BILD HOCHLADEN (falls vorhanden)
+                // A. BILD VERARBEITEN & HOCHLADEN
                 if (file) {
-                    const fileExt = file.name.split('.').pop();
-                    const fileName = `${Date.now()}.${fileExt}`; // Eindeutiger Name
+                    // --- NEU: Hier wird das Bild vor dem Upload komprimiert ---
+                    const compressedBlob = await compressImage(file);
+                    
+                    // Da wir in compressImage zu JPEG konvertieren, nutzen wir .jpg
+                    const fileName = `${Date.now()}.jpg`; 
 
                     const { data: uploadData, error: uploadError } = await supabaseClient.storage
-                        .from('Photos') // Dein Bucket-Name
-                        .upload(fileName, file);
+                        .from('Photos')
+                        .upload(fileName, compressedBlob); // Wir laden den kleinen Blob hoch
 
                     if (uploadError) {
                         console.error("Upload-Fehler:", uploadError);
                     } else {
-                        // Öffentliche URL abrufen
                         const { data: publicUrlData } = supabaseClient.storage
                             .from('Photos')
                             .getPublicUrl(fileName);
@@ -585,18 +650,17 @@
                     }
                 }
 
-                // B. IN SUPABASE SPEICHERN (mit Text und Bild-URL)
+                // B. IN SUPABASE SPEICHERN
                 const { data, error } = await supabaseClient
                     .from('todos')
                     .insert([{ 
                         text: text, 
                         status: 'open',
-                        image_url: imageUrl // Die URL aus Schritt A
+                        image_url: imageUrl 
                     }])
                     .select();
 
                 if (!error && data.length > 0) {
-                    // Karte erstellen (Wichtig: imageUrl als 4. Parameter)
                     createTodoCard(data[0].text, data[0].id, data[0].created_at, data[0].image_url);
                 } else if (error) {
                     console.error("Datenbank-Fehler:", error);
@@ -607,7 +671,7 @@
             } finally {
                 // C. AUFRÄUMEN
                 input.value = ""; 
-                hiddenPhotoInput.value = ""; // Datei-Input leeren
+                hiddenPhotoInput.value = ""; 
                 if (photoPreviewContainer) photoPreviewContainer.classList.add('hidden');
                 saveButton.disabled = false;
                 saveButton.innerText = "+";
@@ -619,6 +683,7 @@
             const id = cloudId || Date.now(); 
             const wrapper = document.createElement("div");
             wrapper.id = `card-wrapper-${id}`;
+            wrapper.setAttribute('data-db-id', id);
             wrapper.className = "swipe-wrapper relative mb-3 bg-transparent";
 
             const dateObj = createdAt ? new Date(createdAt) : new Date();
@@ -661,16 +726,30 @@
             // HIER: Deine Original-Farben und P-Tag Struktur
             card.className = "todo-card h-auto bg-gradient-to-r from-[#233d4d]/20 to-[#fe7f2d]/90 backdrop-blur-xl text-[#fe7f2d] rounded-2xl p-3 shadow-md relative z-10 touch-action-none";
             card.innerHTML = `
-                <div class="flex flex-col h-full justify-between pointer-events-none">
-                    <div class="flex justify-between items-start">
-                        <div class="flex flex-col pr-4">
-                            <p class="text-lg font-semibold leading-tight">${text}</p>
-                            ${imageHtml}
+                <div class="flex justify-between items-stretch pointer-events-none" style="min-height: 70px;">
+                    <div class="flex flex-col justify-between py-1">
+                        <div>
+                            <p class="text-lg font-semibold leading-tight text-[#fe7f2d]">${text}</p>
                         </div>
-                        <span class="drag-handle text-[#233d4d] text-xl opacity-80 px-2 pointer-events-auto" style="cursor: grab; margin-top: -4px;">☰</span>
+                        <div class="mt-2">
+                            <span class="text-[9px] opacity-60 font-mono tracking-tighter text-[#fe7f2d]">${formattedDate}</span>
+                        </div>
                     </div>
-                    <div style="margin-top: -2px;"><span class="text-[9px] opacity-60 font-mono tracking-tighter">${formattedDate}</span></div>
-                </div>`;
+
+                    <div class="flex flex-col items-end justify-between ml-4">
+                        <span class="drag-handle text-[#233d4d] text-xl opacity-80 px-2 pointer-events-auto" style="cursor: grab; margin-top: -4px;">☰</span>
+                        
+                        ${imageUrl ? `
+                            <div class="pointer-events-auto mb-1">
+                                <img src="${imageUrl}" 
+                                    class="w-10 h-10 object-cover rounded-lg border border-white/20 shadow-sm active:scale-90 transition-transform" 
+                                    onclick="window.open('${imageUrl}', '_blank')"
+                                    alt="Task Image">
+                            </div>
+                        ` : '<div class="h-10 w-10"></div>'}
+                    </div>
+                </div>
+            `;
 
             wrapper.appendChild(bg);
             wrapper.appendChild(card);
@@ -805,7 +884,7 @@
                 }
             };
 
-            const onUp = () => {
+            const onUp = async () => {
                 document.removeEventListener('pointermove', onMove);
                 document.removeEventListener('pointerup', onUp);
 
@@ -845,6 +924,7 @@
                     triggerHaptic('light'); // ✌️ Feedback beim Loslassen der sortierten Karte
                     wrapper.style.cssText = "";
                     card.classList.remove("opacity-50", "scale-95");
+                    await updateOrderInDatabase();
                 }
                 intent = null; startX = null;
             };
