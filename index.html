@@ -360,6 +360,7 @@
         let audioChunks = [];
         let stream;
         let isRecording = false; 
+        let isSorting = false; // Diese Variable blockiert das Neuladen während des Schiebens
 
         const menuFab = document.getElementById('menu-fab-button');
         const menuOptions = document.getElementById('fab-menu-options');
@@ -396,31 +397,38 @@
             });
         }
 
-        // REALTIME ABONNEMENT
         const todoSubscription = supabaseClient
-            .channel('public:todos') // Wir hören auf den Kanal 'todos'
+            .channel('public:todos')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, (payload) => {
-                console.log('Echtzeit-Änderung erkannt:', payload);
+                console.log('Änderung erkannt');
                 
-                // Wir machen es uns hier einfach und effektiv:
-                // Sobald sich IRGENDWAS ändert (Verschoben, Neu, Gelöscht),
-                // laden wir die Liste einmal sauber neu.
-                fetchTodos();
+                // Wir laden nur neu, wenn wir nicht gerade selbst sortieren
+                if (!isSorting) {
+                    fetchTodos();
+                }
             })
             .subscribe();
 
+
         // NEU: Diese Funktion schreibt die aktuelle Reihenfolge in die Cloud
         async function updateOrderInDatabase() {
-            const items = [...todoList.querySelectorAll('.swipe-wrapper')];
-            
-            for (let i = 0; i < items.length; i++) {
-                const id = items[i].getAttribute('data-db-id');
-                await supabaseClient
+            isSorting = true; // Sperre aktivieren
+            const items = [...todoList.querySelectorAll('.swipe-wrapper')];            
+            // Alle Updates sammeln
+            const promises = items.map((item, index) => {
+                const id = item.getAttribute('data-db-id');
+                return supabaseClient
                     .from('todos')
-                    .update({ position: i })
+                    .update({ position: index })
                     .eq('id', id);
-            }
-            console.log("Reihenfolge gespeichert!");
+            });
+
+            await Promise.all(promises); // Warten bis ALLE Updates fertig sind            
+            console.log("Reihenfolge gespeichert!");           
+            // Kurz warten, damit die Realtime-Events "verpuffen", bevor wir wieder freigeben
+            setTimeout(() => {
+                isSorting = false; // Sperre aufheben
+            }, 1000);
         }
 
         function triggerHaptic(style = 'light') {
