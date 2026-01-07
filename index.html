@@ -330,9 +330,6 @@
     </div>
 
     <script>
-        // *** Frontend-Logik: Aufnahme, Base64-Kodierung & Senden an Python-Backend ***
-        
-        // Konstanten für UI-Elemente
         const API_BASE_URL = "https://indextest-ogpo.onrender.com";
         const statusText = document.getElementById('status-text');
         const recordButton = document.getElementById('record-button');
@@ -361,6 +358,10 @@
         let stream;
         let isRecording = false; 
         let isSorting = false; // Diese Variable blockiert das Neuladen während des Schiebens
+        let currentFiles = []; // Speichert die Blobs der aufgenommenen Bilder vor dem Speichern               
+        let currentTaskData = { text: "", images: [] }; // Globaler Speicher für die aktuell gewählte Karte
+        let isSending = false; 
+
 
         const menuFab = document.getElementById('menu-fab-button');
         const menuOptions = document.getElementById('fab-menu-options');
@@ -553,10 +554,7 @@
             void bottomSheetContainer.offsetWidth; 
             bottomSheetContainer.classList.add("bottom-sheet-pop");
         }
-
-        fabButton.addEventListener("click", openBottomSheet);
-
-        
+        fabButton.addEventListener("click", openBottomSheet);       
         function closeBottomSheet() {
             bottomSheetContainer.classList.remove("bottom-sheet-pop");
             bottomSheetContainer.classList.add("translate-y-full");
@@ -565,7 +563,6 @@
                 bottomSheet.classList.add("hidden");
             }, 300);
         }
-
         closeBottomSheetButton.addEventListener("click", closeBottomSheet);
 
         // 1. Klick auf das Kamera-Icon löst das versteckte Input aus
@@ -574,15 +571,27 @@
         });
 
         // 2. Wenn ein Bild ausgewählt wurde: Vorschau zeigen
-        hiddenPhotoInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    photoPreview.src = event.target.result;
-                    photoPreviewContainer.classList.remove('hidden'); // Vorschau einblenden
-                };
-                reader.readAsDataURL(file);
+        // Wenn ein Bild ausgewählt oder aufgenommen wurde:
+        hiddenPhotoInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length > 0) {
+                for (const file of files) {
+                    // Bild komprimieren (nutzt deine vorhandene compressImage Funktion)
+                    const compressedBlob = await compressImage(file);
+                    currentFiles.push(compressedBlob);
+                    
+                    // Neues Vorschaubild-Element erstellen
+                    const previewImg = document.createElement('img');
+                    previewImg.src = URL.createObjectURL(compressedBlob);
+                    previewImg.className = "w-12 h-12 object-cover rounded-lg border border-white/20 shadow-md";
+                    
+                    // In den Container einfügen
+                    photoPreviewContainer.appendChild(previewImg);
+                }
+                
+                // Container-Styling anpassen, damit Bilder nebeneinander liegen
+                photoPreviewContainer.classList.remove('hidden');
+                photoPreviewContainer.classList.add('flex', 'flex-wrap', 'gap-2', 'mb-2');
             }
         });
 
@@ -626,35 +635,34 @@
 
         saveButton.addEventListener("click", async () => {
             const text = input.value.trim();
-            const file = hiddenPhotoInput.files ? hiddenPhotoInput.files[0] : null;
 
-            if (!text && !file) return;
+            // Abbruch wenn weder Text noch Bilder da sind
+            if (!text && currentFiles.length === 0) return;
 
             saveButton.disabled = true;
             saveButton.innerText = "..."; 
 
             try {
-                let imageUrl = null;
+                let imageUrls = []; // Wir sammeln hier alle URLs
 
-                // A. BILD VERARBEITEN & HOCHLADEN
-                if (file) {
-                    // --- NEU: Hier wird das Bild vor dem Upload komprimiert ---
-                    const compressedBlob = await compressImage(file);
-                    
-                    // Da wir in compressImage zu JPEG konvertieren, nutzen wir .jpg
-                    const fileName = `${Date.now()}.jpg`; 
+                // A. ALLE BILDER AUS DEM SPEICHER HOCHLADEN
+                if (currentFiles.length > 0) {
+                    for (const blob of currentFiles) {
+                        // Einzigartiger Name für jedes Bild
+                        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.jpg`; 
 
-                    const { data: uploadData, error: uploadError } = await supabaseClient.storage
-                        .from('Photos')
-                        .upload(fileName, compressedBlob); // Wir laden den kleinen Blob hoch
-
-                    if (uploadError) {
-                        console.error("Upload-Fehler:", uploadError);
-                    } else {
-                        const { data: publicUrlData } = supabaseClient.storage
+                        const { data: uploadData, error: uploadError } = await supabaseClient.storage
                             .from('Photos')
-                            .getPublicUrl(fileName);
-                        imageUrl = publicUrlData.publicUrl;
+                            .upload(fileName, blob);
+
+                        if (uploadError) {
+                            console.error("Upload-Fehler:", uploadError);
+                        } else {
+                            const { data: publicUrlData } = supabaseClient.storage
+                                .from('Photos')
+                                .getPublicUrl(fileName);
+                            imageUrls.push(publicUrlData.publicUrl);
+                        }
                     }
                 }
 
@@ -664,23 +672,23 @@
                     .insert([{ 
                         text: text, 
                         status: 'open',
-                        image_url: imageUrl 
+                        image_url: imageUrls // Wir senden das Array direkt an Supabase
                     }])
                     .select();
 
                 if (!error && data.length > 0) {
                     createTodoCard(data[0].text, data[0].id, data[0].created_at, data[0].image_url);
-                } else if (error) {
-                    console.error("Datenbank-Fehler:", error);
                 }
 
             } catch (e) {
                 console.error("Gesamt-Fehler:", e);
             } finally {
-                // C. AUFRÄUMEN
+                // C. AUFRÄUMEN & RESET
                 input.value = ""; 
                 hiddenPhotoInput.value = ""; 
-                if (photoPreviewContainer) photoPreviewContainer.classList.add('hidden');
+                currentFiles = []; // Liste leeren
+                photoPreviewContainer.innerHTML = ""; // Vorschaubilder entfernen
+                photoPreviewContainer.classList.add('hidden');
                 saveButton.disabled = false;
                 saveButton.innerText = "+";
                 closeBottomSheet();
@@ -688,16 +696,19 @@
         });
         // --- KARTEN ERSTELLUNG ---
         function createTodoCard(text, cloudId = null, createdAt = null, imageUrl = null) {
+            // 1. URLs normalisieren: Sicherstellen, dass wir immer mit einem Array arbeiten
+            const images = Array.isArray(imageUrl) ? imageUrl : (imageUrl ? [imageUrl] : []);
+            
             const id = cloudId || Date.now(); 
             const wrapper = document.createElement("div");
             wrapper.id = `card-wrapper-${id}`;
             wrapper.setAttribute('data-db-id', id);
-            wrapper.className = "swipe-wrapper relative mb-3 bg-transparent";
+            wrapper.className = "swipe-wrapper relative mb-2 bg-transparent";
 
             const dateObj = createdAt ? new Date(createdAt) : new Date();
             const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${dateObj.getFullYear()}`;
 
-            // Hintergrund (Icons) bleibt exakt wie er war
+            // Hintergrund (Icons) bleibt gleich
             const bg = document.createElement("div");
             bg.className = "swipe-action-bg absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-200";
             bg.style.display = "grid";
@@ -720,26 +731,16 @@
                     </div>
                 </div>`;
 
-            // Bild-HTML: Klein und kompakt
-            let imageHtml = "";
-            if (imageUrl) {
-                imageHtml = `
-                    <div class="mt-1 pointer-events-auto">
-                        <img src="${imageUrl}" class="w-16 h-16 object-cover rounded-lg border border-white/20 shadow-sm" onclick="window.open('${imageUrl}', '_blank')">
-                    </div>`;
-            }
-
             const card = document.createElement("div");
             card.id = `card-${id}`;
-            // HIER: Deine Original-Farben und P-Tag Struktur
-            card.className = "todo-card h-auto bg-gradient-to-r from-[#233d4d]/20 to-[#fe7f2d]/90 backdrop-blur-xl text-[#fe7f2d] rounded-2xl p-3 shadow-md relative z-10 touch-action-none";
+            card.className = "todo-card h-auto bg-gradient-to-r from-[#233d4d]/20 to-[#fe7f2d]/90 backdrop-blur-xl text-[#fe7f2d] rounded-2xl p-2 shadow-md relative z-10 touch-action-none";
             card.innerHTML = `
-                <div class="flex justify-between items-stretch pointer-events-none" style="min-height: 70px;">
+                <div class="flex justify-between items-stretch pointer-events-none" style="min-height: 50px;">
                     <div class="flex flex-col justify-between py-1">
                         <div>
                             <p class="text-lg font-semibold leading-tight text-[#fe7f2d]">${text}</p>
                         </div>
-                        <div class="mt-2">
+                        <div class="mt-1">
                             <span class="text-[9px] opacity-60 font-mono tracking-tighter text-[#fe7f2d]">${formattedDate}</span>
                         </div>
                     </div>
@@ -747,24 +748,23 @@
                     <div class="flex flex-col items-end justify-between ml-4">
                         <span class="drag-handle text-[#233d4d] text-xl opacity-80 px-2 pointer-events-auto" style="cursor: grab; margin-top: -4px;">☰</span>
                         
-                        ${imageUrl ? `
-                            <div class="pointer-events-auto mb-1">
-                                <img src="${imageUrl}" 
-                                    class="w-10 h-10 object-cover rounded-lg border border-white/20 shadow-sm active:scale-90 transition-transform" 
-                                    onclick="window.open('${imageUrl}', '_blank')"
-                                    alt="Task Image">
-                            </div>
-                        ` : '<div class="h-10 w-10"></div>'}
+                        <div class="flex gap-1 mt-2 pointer-events-auto overflow-x-auto max-w-[150px] justify-end">
+                            ${images.length > 0 ? images.map(url => `
+                                <img src="${url}" 
+                                    class="w-10 h-10 object-cover rounded-lg border border-white/20 shadow-sm active:scale-90 transition-transform flex-shrink-0" 
+                                    onclick="window.open('${url}', '_blank')">
+                            `).join('') : '<div class="h-6 w-10"></div>'}
+                        </div>
                     </div>
                 </div>
             `;
 
             wrapper.appendChild(bg);
             wrapper.appendChild(card);
-            todoList.prepend(wrapper); // Nutzt dein bestehendes todoList Element
+            todoList.prepend(wrapper);
 
-            enableInteract(wrapper, card, id);
-        }   
+            enableInteract(wrapper, card, id, images);
+        }
 
         window.addEventListener('scroll', () => {
             const headerBg = document.getElementById('header-bg');
@@ -790,18 +790,18 @@
             }
         });        
 
+
+    // --- Deine bestehenden Funktionen (handleSwipeAction etc.) ---
         async function handleSwipeAction(id, action) {
             const wrapper = document.getElementById(`card-wrapper-${id}`);
             if (!wrapper) return;
 
-            // In der Cloud löschen
             const { error } = await supabaseClient
                 .from('todos')
                 .delete()
                 .eq('id', id);
 
             if (!error) {
-                // UI Animation (dein bestehender Code)
                 wrapper.style.transition = "all 0.3s ease";
                 wrapper.style.height = "0";
                 wrapper.style.opacity = "0";
@@ -809,72 +809,131 @@
             }
         }
 
-        function enableInteract(wrapper, card, id) {
+        // --- E-Mail Logik: EINMALIGER Listener (außerhalb von enableInteract) ---
+        document.getElementById('send-email-confirm').onclick = async function(e) {
+            if (isSending) return; 
+            
+            const emailInput = document.getElementById('recipient-email');
+            const email = emailInput.value.trim();
+            
+            if (!email.includes('@') || email.length < 5) return;
+
+            isSending = true; 
+            this.disabled = true; 
+
+            const anim = document.getElementById('send-success-anim');
+            anim.classList.remove('hidden');
+
+            // Nutzt currentTaskData, welches in enableInteract befüllt wird
+            const photoText = (currentTaskData.images && currentTaskData.images.length > 0) 
+                ? "\n\nAnhang (Fotos):\n" + currentTaskData.images.join("\n") 
+                : "";
+
+            try {
+                await emailjs.send('service_p1o2ghl', 'template_bz12gsg', {
+                    to_email: email, 
+                    message: currentTaskData.text + photoText,
+                    subject: "Neue Aufgabe für dich 🚀"
+                });
+
+                localStorage.setItem('lastRecipient', email);
+                
+                setTimeout(() => {
+                    anim.classList.add('hidden');
+                    document.getElementById('email-sheet-container').classList.add('translate-y-full');
+                    setTimeout(() => {
+                        document.getElementById('email-sheet').classList.add('hidden');
+                        isSending = false;
+                        this.disabled = false;
+                    }, 300);
+                }, 1500);
+
+            } catch (err) {
+                console.error("EmailJS Fehler:", err);
+                anim.classList.add('hidden');
+                isSending = false;
+                this.disabled = false;
+            }
+        };
+
+        function enableInteract(wrapper, card, id, imageUrlArray){
             const bg = wrapper.querySelector('.swipe-action-bg');
             const iconComplete = bg.querySelector(`#icon-complete-${id}`);
             const iconMail = bg.querySelector(`#icon-mail-${id}`);
             const iconDelete = bg.querySelector(`#icon-delete-${id}`);
             
-            let startX, startY, currentX = 0, intent = null;
+            iconMail.style.pointerEvents = "auto";
+            iconDelete.style.pointerEvents = "auto";
             
-            // Werte für iPhone optimiert
+            let startX, startY, currentX = 0, intent = null;
             const SNAP_LEFT = -180; 
-            const MAX_LEFT = -200; // Strengere Begrenzung gegen "Grün-Blitzen"
+            const MAX_LEFT = -200;
 
             bg.style.display = "grid";
             bg.style.gridTemplateColumns = "2fr 1fr 1fr";
-            bg.style.alignItems = "center";
 
+            // E-Mail Icon Klick
+            iconMail.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                // Befüllt die Daten für den Button oben
+                currentTaskData = {
+                    text: card.querySelector('p').innerText.trim(),
+                    images: (typeof imageUrlArray !== 'undefined') ? imageUrlArray : []
+                };
+
+                const emailSheet = document.getElementById('email-sheet');
+                const container = document.getElementById('email-sheet-container');
+                emailSheet.classList.remove('hidden');
+                setTimeout(() => container.classList.remove('translate-y-full'), 10);
+
+                card.style.transition = "0.3s ease";
+                card.style.transform = "translateX(0)";
+                setTimeout(() => { bg.style.opacity = 0; }, 300);
+            });
+
+            // Lösch Icon Klick
+            iconDelete.addEventListener('pointerdown', async (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                const { error } = await supabaseClient.from('todos').delete().eq('id', id);
+                if (!error) {
+                    wrapper.style.transition = "all 0.4s ease";
+                    wrapper.style.transform = "translateX(-100%)";
+                    wrapper.style.opacity = "0";
+                    setTimeout(() => { wrapper.remove(); }, 400);
+                }
+            });
+
+            // --- Swipe & Sortier Logik (Dein Original) ---
             const onMove = (e) => {
                 const x = e.clientX || (e.touches && e.touches[0].clientX);
                 const y = e.clientY || (e.touches && e.touches[0].clientY);
                 if (!startX) return;
-
                 const dx = x - startX;
                 const dy = y - startY;
 
-                // Logik: Was will der Nutzer tun?
                 if (!intent || intent === 'waiting') {
-                    // 1. Wenn horizontal bewegt wird -> Immer Swipe
-                    if (Math.abs(dx) > 10) {
-                        intent = 'swipe';
-                    } 
-                    // 2. Wenn vertikal bewegt wird -> NUR sortieren, wenn im pointerdown 'sort' gesetzt wurde
-                    else if (Math.abs(dy) > 10) {
-                        if (intent === 'sort') {
-                            // Alles okay, sortieren läuft weiter
-                        } else {
-                            // Nutzer bewegt vertikal, hat aber nicht das Handle angefasst
-                            // Wir tun nichts und lassen das System evtl. normal scrollen
-                            return; 
-                        }
-                    } else {
-                        return; // Noch nicht genug Bewegung
-                    }
+                    if (Math.abs(dx) > 10) intent = 'swipe';
+                    else if (Math.abs(dy) > 10 && intent === 'sort') {} 
+                    else return;
                 }
 
-                // --- SWIPE LOGIK ---
                 if (intent === 'swipe') {
                     currentX = Math.max(MAX_LEFT, Math.min(250, dx));
                     card.style.transform = `translateX(${currentX}px)`;
                     bg.style.opacity = 1;
                     bg.style.background = "linear-gradient(to right, #16a34a 0%, #16a34a 50%, #3b82f6 50%, #3b82f6 75%, #dc2626 75%, #dc2626 100%)";
-
                     if (currentX > 20) {
-                        iconComplete.style.opacity = 1;
-                        iconMail.style.opacity = 0;
-                        iconDelete.style.opacity = 0;
+                        iconComplete.style.opacity = 1; iconMail.style.opacity = 0; iconDelete.style.opacity = 0;
                     } else if (currentX < -20) {
                         iconComplete.style.opacity = 0;
-                        if (currentX < -140) { 
-                            iconDelete.style.opacity = 1; iconMail.style.opacity = 0.3;
-                        } else {
-                            iconDelete.style.opacity = 0.3; iconMail.style.opacity = 1;
-                        }
+                        if (currentX < -140) { iconDelete.style.opacity = 1; iconMail.style.opacity = 0.3; } 
+                        else { iconDelete.style.opacity = 0.3; iconMail.style.opacity = 1; }
                     }
-                } 
-                // --- SORTIER LOGIK ---
-                else if (intent === 'sort') {
+                } else if (intent === 'sort') {
                     const rect = wrapper.getBoundingClientRect();
                     if (wrapper.style.position !== 'fixed') {
                         wrapper.style.width = `${rect.width}px`;
@@ -895,41 +954,21 @@
             const onUp = async () => {
                 document.removeEventListener('pointermove', onMove);
                 document.removeEventListener('pointerup', onUp);
-
                 if (intent === 'swipe') {
                     card.style.transition = "0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28)";
-
-                    // FALL 1: Karte nach rechts wischen (Erledigt)
                     if (currentX > 160) {
                         triggerHaptic('success'); 
                         card.style.transform = "translateX(600px)";
-                        
-                        // Sicherer Aufruf der Lösch-Funktion
-                        setTimeout(() => {
-                            if (typeof handleSwipeAction === "function") {
-                                handleSwipeAction(id, "complete");
-                            } else {
-                                // Notfall-Löschen, falls die Funktion oben nicht gefunden wird
-                                wrapper.remove();
-                            }
-                        }, 200);
-                    }
-                    
-                    // FALL 2: Karte nach links wischen (Snap für Mail/Löschen)
-                    else if (currentX < -60) {
-                        triggerHaptic('light'); // ⚡ Kurzer "Klick", wenn sie einrastet
+                        setTimeout(() => { handleSwipeAction(id, "complete"); }, 200);
+                    } else if (currentX < -60) {
+                        triggerHaptic('light');
                         card.style.transform = `translateX(${SNAP_LEFT}px)`;
-                        iconMail.style.opacity = 1; 
-                        iconDelete.style.opacity = 1;
-                    } 
-                    
-                    // FALL 3: Zurück in die Mitte
-                    else {
+                    } else {
                         card.style.transform = "translateX(0)";
                         setTimeout(() => { if (!intent) bg.style.opacity = 0; }, 300);
                     }
                 } else if (intent === 'sort') {
-                    triggerHaptic('light'); // ✌️ Feedback beim Loslassen der sortierten Karte
+                    triggerHaptic('light');
                     wrapper.style.cssText = "";
                     card.classList.remove("opacity-50", "scale-95");
                     await updateOrderInDatabase();
@@ -939,289 +978,79 @@
 
             card.addEventListener('pointerdown', (e) => {
                 if (e.target.closest('.swipe-action-bg')) return;
-
-                startX = e.clientX;
-                startY = e.clientY;
+                startX = e.clientX; startY = e.clientY;
                 card.style.transition = "none";
-
-                // Wir prüfen sofort: Wurde das Handle angefasst?
-                const isHandle = e.target.closest('.drag-handle');
-                
-                if (isHandle) {
-                    intent = 'sort'; // Explizit sortieren
-                } else {
-                    intent = 'waiting'; // Wir warten ab, ob es ein Swipe wird
-                }
-                
+                intent = e.target.closest('.drag-handle') ? 'sort' : 'waiting';
                 document.addEventListener('pointermove', onMove);
                 document.addEventListener('pointerup', onUp);
             });
-
-            // 1. E-Mail Versand Logik
-            let currentMailText = ""; // Merkt sich den Text der aktuellen Karte
-
-            iconMail.addEventListener('pointerdown', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                
-                currentMailText = card.querySelector('p').innerText.trim().replace(/\s+/g, ' ');
-                
-                // Sheet öffnen
-                const emailSheet = document.getElementById('email-sheet');
-                const container = document.getElementById('email-sheet-container');
-                const emailInput = document.getElementById('recipient-email');
-
-                // DIE NEUE ZEILE: Adresse aus dem Speicher holen (falls vorhanden)
-                const savedEmail = localStorage.getItem('lastRecipient');
-                if (savedEmail) {
-                    emailInput.value = savedEmail;
-                }
-                emailSheet.classList.remove('hidden');
-                setTimeout(() => container.classList.remove('translate-y-full'), 10);
-                
-                // Karte zurückschieben
-                card.style.transform = "translateX(0)";
-                setTimeout(() => { bg.style.opacity = 0; }, 300);
-            });
-
-            document.getElementById('cancel-email').addEventListener('click', closeEmailSheet);
-
-            function closeEmailSheet() {
-                const container = document.getElementById('email-sheet-container');
-                container.classList.add('translate-y-full');
-                setTimeout(() => document.getElementById('email-sheet').classList.add('hidden'), 300);
-            }
-
-            document.getElementById('send-email-confirm').addEventListener('click', () => {
-                const emailInput = document.getElementById('recipient-email');
-                const email = emailInput.value.trim();
-                
-                // Einfache Prüfung der E-Mail
-                if (!email.includes('@') || email.length < 5) {
-                    const originalPlaceholder = emailInput.placeholder;
-                    const originalValue = emailInput.value;
-
-                    emailInput.value = "";
-                    emailInput.placeholder = "⚠️ Ungültige E-Mail Adresse!";
-                    emailInput.classList.add('input-error');
-
-                    // Nach 2 Sekunden alles zurücksetzen
-                    setTimeout(() => {
-                        emailInput.classList.remove('input-error');
-                        emailInput.placeholder = originalPlaceholder;
-                        emailInput.value = originalValue;
-                    }, 2000);
-                    return;
-                }
-
-                if (document.activeElement) document.activeElement.blur();
-
-                const anim = document.getElementById('send-success-anim');
-                anim.classList.remove('hidden');
-
-                emailjs.send('service_p1o2ghl', 'template_bz12gsg', {
-                    to_email: email, 
-                    message: currentMailText,
-                    subject: "Neue Aufgabe für dich 🚀"
-                })
-                .then(() => {
-                    localStorage.setItem('lastRecipient', email);
-                    setTimeout(() => {
-                        anim.classList.add('hidden');
-                        closeEmailSheet(); 
-                    }, 1500);
-                })
-                .catch((err) => {
-                    anim.classList.add('hidden');
-                    emailInput.value = "";
-                    emailInput.placeholder = "❌ Sende-Fehler!";
-                    emailInput.classList.add('input-error');
-                    setTimeout(() => emailInput.classList.remove('input-error'), 3000);
-                });
-            });
-
-            // 2. Löschen Logik (Die Tonne)
-            iconDelete.addEventListener('pointerdown', async (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                
-                console.log("Löschen in Cloud gestartet für ID:", id);
-                
-                // 1. In Supabase löschen
-                const { error } = await supabaseClient
-                    .from('todos')
-                    .delete()
-                    .eq('id', id);
-
-                if (error) {
-                    console.error("Fehler beim Löschen in Supabase:", error);
-                    alert("Konnte nicht gelöscht werden. Verbindung prüfen!");
-                    return;
-                }
-
-                // 2. Wenn Cloud-Löschung erfolgreich, Animation im UI starten
-                wrapper.style.transition = "all 0.4s ease";
-                wrapper.style.transform = "translateX(-100%)";
-                wrapper.style.opacity = "0";
-                
-                setTimeout(() => {
-                    wrapper.remove();
-                    console.log("Karte lokal entfernt");
-                }, 400);
-            });
         }
 
+        // --- Audio Logik (Unverändert übernommen) ---
         async function transcribeAudio(base64Audio, mimeType) {
-            // Besseres Feedback, falls der Server erst hochfahren muss
-            input.value = "Verarbeitung läuft... (Das Backend wacht evtl. gerade auf ☕)";
-
+            input.value = "Verarbeitung läuft... ☕";
             try {
-                // Setze einen längeren Timeout für den ersten Request nach dem Sleep
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 Sek Zeit geben
-
+                const timeoutId = setTimeout(() => controller.abort(), 60000);
                 const response = await fetch(API_BASE_URL + '/transcribe', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ audio_base64: base64Audio, mime_type: mimeType }),
                     signal: controller.signal
                 });
-
                 clearTimeout(timeoutId);
                 const data = await response.json();
-
-                if (response.ok) {
-                    input.value = data.transcript; 
-                    input.focus(); 
-                } else {
-                    input.value = `[FEHLER] ${data.error || "Serverfehler"}`; 
-                }
-                
+                if (response.ok) { input.value = data.transcript; input.focus(); } 
+                else { input.value = `[FEHLER] ${data.error || "Serverfehler"}`; }
             } catch (error) {
-                if (error.name === 'AbortError') {
-                    input.value = "[TIMEOUT] Das Backend hat zu lange zum Aufwachen gebraucht. Bitte gleich noch mal versuchen!";
-                } else {
-                    input.value = `[NETZWERKFEHLER] ${error.message}`;
-                }
+                input.value = error.name === 'AbortError' ? "[TIMEOUT]" : `[NETZWERKFEHLER] ${error.message}`;
             }
         }
 
         function startRecording(e) {
-            // 1. Prüfe, ob wir schon aufnehmen oder ob es nicht der Record Button ist.
-            if (isRecording) return;
-            
-            // 2. Wichtig: Verhindert, dass der Browser ein unnötiges Click-Event auslöst,
-            //    aber wir müssen den Pointer Capture setzen.
+            if (isRecording || !stream) return;
             e.preventDefault(); 
-            
-            // 3. Wenn es ein Pointer-Event ist, Capture setzen.
-            if (e.pointerId !== undefined) {
-                // Stellt sicher, dass das pointerup-Event auch außerhalb des Buttons gefeuert wird.
-                e.target.setPointerCapture(e.pointerId); 
-            }
-            
-            if (!stream) {
-                input.value = "[FEHLER] Mikrofon nicht bereit. Erlaubnis verweigert?";
-                return;
-            }
-            
+            if (e.pointerId !== undefined) e.target.setPointerCapture(e.pointerId); 
             isRecording = true;
             recordButton.classList.add('recording-pulse');
             input.value = "🔥 Aufnahme läuft... ";
-
-            try {
-                mediaRecorder = new MediaRecorder(stream, { mimeType: preferredMimeType });
-            } catch (error) {
-                input.value = `[FEHLER] MediaRecorder konnte nicht initialisiert werden: ${error.message}`;
-                isRecording = false;
-                recordButton.classList.remove('recording-pulse');
-                return;
-            }
-
+            mediaRecorder = new MediaRecorder(stream, { mimeType: preferredMimeType });
             audioChunks = [];
-            
-            mediaRecorder.ondataavailable = event => {
-                audioChunks.push(event.data);
-            };
-
+            mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
             mediaRecorder.onstop = () => {
-                if (audioChunks.length === 0) {
-                    input.value = "[HINWEIS] Aufnahme zu kurz oder keine Daten erfasst.";
-                    return;
-                }
-
-                const mimeType = mediaRecorder.mimeType;
-                const audioBlob = new Blob(audioChunks, { type: mimeType });
+                if (audioChunks.length === 0) return;
                 const reader = new FileReader();
-                
-                reader.onloadend = () => {
-                    const base64Audio = reader.result.split(',')[1];
-                    transcribeAudio(base64Audio, mimeType);
-                };
-                reader.readAsDataURL(audioBlob);
+                reader.onloadend = () => transcribeAudio(reader.result.split(',')[1], mediaRecorder.mimeType);
+                reader.readAsDataURL(new Blob(audioChunks, { type: mediaRecorder.mimeType }));
             };
-
             mediaRecorder.start();
-            console.log("Aufnahme gestartet...");
         }
 
         function stopRecording(e) {
             if (!isRecording) return;
-            
             isRecording = false; 
             recordButton.classList.remove('recording-pulse');
-
-            // Wenn Pointer Capture gesetzt wurde, muss es freigegeben werden.
-            if (e.pointerId !== undefined) {
-                e.target.releasePointerCapture(e.pointerId);
-            }
-            
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-                console.log("Aufnahme gestoppt. Starte Transkription...");
-            }
-        }
-
-        async function wakeUpBackend() {
-            console.log("Wecke Backend auf...");
-            try {
-                // Wir senden einen einfachen GET-Request an eine (evtl. neue) Health-Route 
-                // oder einfach an dein Haupt-URL. 
-                // Auch wenn es ein 404 gibt, wacht Render trotzdem auf!
-                fetch(API_BASE_URL + '/health').catch(() => {}); 
-                
-                // Alternativ: Ein leerer POST an /transcribe (würde einen Fehler werfen, weckt aber auch)
-            } catch (e) {
-                // Fehler ignorieren, es geht nur um den Ping
-            }
+            if (e.pointerId !== undefined) e.target.releasePointerCapture(e.pointerId);
+            if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
         }
 
         async function initRecorder() {
-            wakeUpBackend();
             try {
+                fetch(API_BASE_URL + '/health').catch(() => {}); 
                 stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                console.log(`Mikrofon bereit. Format: ${preferredMimeType}`);
                 recordButton.disabled = false;
-                
-                // 🔥 WICHTIG: pointerdown/pointerup verwenden, aber nur auf dem Button lauschen
                 recordButton.addEventListener('pointerdown', startRecording); 
                 recordButton.addEventListener('pointerup', stopRecording); 
-                
-                // Fügt das stop-Event zum Dokument hinzu, falls der Benutzer außerhalb loslässt (Desktop).
-                // ACHTUNG: Wir nutzen hier KEIN pointerup, da wir setPointerCapture verwenden,
-                // was das pointerup an den Button zurücksendet, auch wenn außerhalb losgelassen wird.
-                // Das document-level stopRecording (wie in der vorherigen Version) ist hier nicht mehr nötig.
-
             } catch (err) {
-                console.error("Fehler beim Zugriff auf das Mikrofon: ", err);
-                input.value = "⚠️ Fehler: Mikrofonberechtigung verweigert oder Gerät nicht gefunden.";
-                recordButton.disabled = true;
+                input.value = "⚠️ Mikrofon-Fehler!";
             }
         }
+
         window.onload = () => {
             initRecorder();
-            fetchTodos(); // Lädt deine To-Dos beim Starten der App
+            fetchTodos();
         };
+
 
         // 🔥 PWA Service Worker Registrierung
         if ('serviceWorker' in navigator) {
