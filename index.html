@@ -358,6 +358,7 @@
         let stream;
         let isRecording = false; 
         let isSorting = false; // Diese Variable blockiert das Neuladen während des Schiebens
+        let isDeleting = false;
         let currentFiles = []; // Speichert die Blobs der aufgenommenen Bilder vor dem Speichern               
         let currentTaskData = { text: "", images: [] }; // Globaler Speicher für die aktuell gewählte Karte
         let isSending = false; 
@@ -379,6 +380,7 @@
 
         // Diese Funktion ersetzt dein bisheriges lokales Erstellen
         async function fetchTodos() {
+            if (isDeleting) return; // Nicht laden, während wir gerade löschen!
             // Der "v" Parameter ist ein Trick: Er macht die URL für den Browser jedes Mal 
             // "neu", sodass er nicht aus dem Cache laden kann.
             const { data, error } = await supabaseClient
@@ -408,14 +410,14 @@
         const todoSubscription = supabaseClient
             .channel('public:todos')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, (payload) => {
-                if (!isSorting) {
-                    // Wenn eine Änderung kommt, warten wir 500ms. 
-                    // Wenn in der Zeit eine weitere Änderung kommt, wird der Timer zurückgesetzt.
+                // Wir loggen kurz, was passiert (hilft beim Debuggen auf dem Desktop)
+                console.log("Änderung erkannt:", payload.eventType);
+
+                if (!isSorting && !isDeleting) { // NEU: Auch isDeleting prüfen
                     clearTimeout(fetchTimeout);
                     fetchTimeout = setTimeout(() => {
-                        console.log("Synchronisiere Liste nach DB-Änderung...");
                         fetchTodos();
-                    }, 500); 
+                    }, 800); 
                 }
             })
             .subscribe();
@@ -497,21 +499,39 @@
         // Die "Liste leeren" Funktion umschreiben:
         btnClearList.addEventListener('click', () => {
             closeMenu(); // Erst das kleine Menü zu
-            customConfirm.classList.remove('hidden'); // Dann die große Abfrage auf
+            customConfirm.classList.remove('hidden'); 
         });
 
         // Wenn man auf Löschen klickt:
-        confirmDeleteBtn.addEventListener('click', () => {
-            const cards = todoList.querySelectorAll('.swipe-wrapper');
-            cards.forEach((card, index) => {
+        confirmDeleteBtn.addEventListener('click', async () => {
+            isDeleting = true; 
+
+            // 1. UI sofort leeren (ohne langes Warten)
+            todoList.innerHTML = ""; 
+
+            // 2. Cloud-Löschung
+            try {
+                // Wir löschen alle Todos
+                const { error } = await supabaseClient
+                    .from('todos')
+                    .delete()
+                    .neq('status', 'gibtsnicht'); // Löscht sicher alles
+
+                if (error) throw error;
+
+                console.log("Datenbank ist jetzt leer.");
+            } catch (e) {
+                console.error("Fehler beim Löschen:", e);
+            } finally {
+                customConfirm.classList.add('hidden');
+                
+                // Wir warten kurz, damit Realtime-Events verarbeiten können
                 setTimeout(() => {
-                    card.style.transition = "all 0.4s ease";
-                    card.style.transform = "translateX(100%)";
-                    card.style.opacity = "0";
-                    setTimeout(() => card.remove(), 400);
-                }, index * 50);
-            });
-            customConfirm.classList.add('hidden');
+                    isDeleting = false;
+                    // Wir erzwingen einmal ein sauberes Fetch, um sicherzugehen
+                    fetchTodos(); 
+                }, 1000);
+            }
         });
 
         // Wenn man auf Abbrechen klickt:
@@ -686,18 +706,17 @@
                 }
 
                 // B. IN SUPABASE SPEICHERN
+                const currentItemsCount = document.querySelectorAll('.swipe-wrapper').length;
                 const { data, error } = await supabaseClient
                     .from('todos')
                     .insert([{ 
                         text: text, 
                         status: 'open',
-                        image_url: imageUrls // Wir senden das Array direkt an Supabase
+                        image_url: imageUrls,
+                        position: currentItemsCount // NEU: Hier setzen wir die Position fest!
                     }])
                     .select();
 
-                if (!error && data.length > 0) {
-                    createTodoCard(data[0].text, data[0].id, data[0].created_at, data[0].image_url);
-                }
 
             } catch (e) {
                 console.error("Gesamt-Fehler:", e);
@@ -780,7 +799,7 @@
 
             wrapper.appendChild(bg);
             wrapper.appendChild(card);
-            todoList.prepend(wrapper);
+            todoList.appendChild(wrapper);
 
             enableInteract(wrapper, card, id, images);
         }
