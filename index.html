@@ -398,14 +398,18 @@
             });
         }
 
+        let fetchTimeout;
         const todoSubscription = supabaseClient
             .channel('public:todos')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, (payload) => {
-                console.log('Änderung erkannt');
-                
-                // Wir laden nur neu, wenn wir nicht gerade selbst sortieren
                 if (!isSorting) {
-                    fetchTodos();
+                    // Wenn eine Änderung kommt, warten wir 500ms. 
+                    // Wenn in der Zeit eine weitere Änderung kommt, wird der Timer zurückgesetzt.
+                    clearTimeout(fetchTimeout);
+                    fetchTimeout = setTimeout(() => {
+                        console.log("Synchronisiere Liste nach DB-Änderung...");
+                        fetchTodos();
+                    }, 500); 
                 }
             })
             .subscribe();
@@ -413,23 +417,32 @@
 
         // NEU: Diese Funktion schreibt die aktuelle Reihenfolge in die Cloud
         async function updateOrderInDatabase() {
-            isSorting = true; // Sperre aktivieren
+            isSorting = true; 
             const items = [...todoList.querySelectorAll('.swipe-wrapper')];            
-            // Alle Updates sammeln
-            const promises = items.map((item, index) => {
-                const id = item.getAttribute('data-db-id');
-                return supabaseClient
-                    .from('todos')
-                    .update({ position: index })
-                    .eq('id', id);
-            });
+            
+            // Wir erstellen ein Array mit allen Objekten, die aktualisiert werden müssen
+            const updates = items.map((item, index) => ({
+                id: item.getAttribute('data-db-id'),
+                position: index,
+                // Falls deine Tabelle noch andere Pflichtfelder hat, müssen die hier nicht rein, 
+                // da wir nur existierende IDs updaten.
+            }));
 
-            await Promise.all(promises); // Warten bis ALLE Updates fertig sind            
-            console.log("Reihenfolge gespeichert!");           
-            // Kurz warten, damit die Realtime-Events "verpuffen", bevor wir wieder freigeben
+            // "upsert" macht alles in EINER Anfrage
+            const { error } = await supabaseClient
+                .from('todos')
+                .upsert(updates, { onConflict: 'id' }); 
+
+            if (error) {
+                console.error("Fehler beim Speichern der Reihenfolge:", error);
+            } else {
+                console.log("Reihenfolge erfolgreich in einem Rutsch gespeichert!");
+            }
+
+            // Wichtig: Etwas länger warten, bis sich der Realtime-Sturm gelegt hat
             setTimeout(() => {
-                isSorting = false; // Sperre aufheben
-            }, 1000);
+                isSorting = false;
+            }, 1500);
         }
 
         function triggerHaptic(style = 'light') {
