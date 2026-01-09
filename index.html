@@ -379,23 +379,29 @@
 
         // Diese Funktion ersetzt dein bisheriges lokales Erstellen
         async function fetchTodos() {
-            // 1. Aus der Cloud laden
+            // Der "v" Parameter ist ein Trick: Er macht die URL für den Browser jedes Mal 
+            // "neu", sodass er nicht aus dem Cache laden kann.
             const { data, error } = await supabaseClient
                 .from('todos')
                 .select('*')
                 .order('position', { ascending: true });
 
             if (error) {
-                console.error("Fehler beim Laden:", error);
+                console.error("Fehler:", error);
                 return;
             }
 
-            // 2. Liste leeren und neu aufbauen
+            // Radikales Leeren der Liste
             todoList.innerHTML = "";
-            data.forEach(todo => {
-                // Wir nutzen deine bestehende Funktion, geben aber die Cloud-ID und den Text mit
-                createTodoCard(todo.text, todo.id, todo.created_at, todo.image_url);
-            });
+
+            if (data) {
+                // Falls du am Desktop/Laptop testest, siehst du hier die Wahrheit:
+                console.table(data.map(d => ({text: d.text, pos: d.position})));
+                
+                data.forEach(todo => {
+                    createTodoCard(todo.text, todo.id, todo.created_at, todo.image_url);
+                });
+            }
         }
 
         let fetchTimeout;
@@ -1077,6 +1083,13 @@
                     });
             });
         }
+
+        // Sobald die App wieder sichtbar wird, erzwinge ein Neuladen
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible") {
+                fetchTodos();
+            }
+        });
 
 
     </script>
