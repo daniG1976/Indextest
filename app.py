@@ -21,9 +21,11 @@ GOOGLE_STT_ENDPOINT = f"https://speech.googleapis.com/v1/speech:recognize?key={G
 
 # --- NEU: Gemini Konfiguration (Moderne Bibliothek) ---
 if GOOGLE_API_KEY != 'API_KEY_NOT_SET':
-    # Das ist alles! Der neue Client regelt den Rest (auch REST/gRPC) selbstständig.
-    client = genai.Client(api_key=GOOGLE_API_KEY)
-# ---------------------------------
+    # WICHTIG: Wir erzwingen Version 'v1', damit der 404-Fehler verschwindet
+    client = genai.Client(
+        api_key=GOOGLE_API_KEY,
+        http_options={'api_version': 'v1'}
+    )
 
 # Prüfen, ob der API-Schlüssel gesetzt ist
 API_KEY_VALID = GOOGLE_API_KEY != 'API_KEY_NOT_SET'
@@ -129,37 +131,20 @@ def transcribe_audio():
 # --- NEU: BACKEND (Handschrift-Erkennung / OCR) ---
 @app.route('/scan-handwriting', methods=['POST'])
 def scan_handwriting():
-    """Empfängt eine Bild-URL und extrahiert Text via Gemini AI."""
-    if not API_KEY_VALID:
-        return {"error": "API-Schlüssel nicht gesetzt."}, 500
-
     try:
         data = request.get_json()
         image_url = data.get('image_url')
-        
         if not image_url:
             return {"error": "Keine Bild-URL gefunden."}, 400
 
-        logger.info(f"Starte Scan für Bild: {image_url}")
-
-        # 1. Bild von Supabase/URL herunterladen
+        # Bild laden
         img_response = requests.get(image_url)
-        if img_response.status_code != 200:
-            return {"error": "Bild konnte nicht von der URL geladen werden."}, 400
-
-        # 2. Prompt für die KI definieren
-        prompt = (
-            "Analysiere dieses Bild. Es handelt sich um eine handgeschriebene oder gedruckte Notiz. "
-            "Extrahiere den Text und formatiere ihn als kurze, klare To-Do Liste. "
-            "Antworte NUR mit dem erkannten Text, keine Einleitung, keine Kommentare."
-        )
-
-        # 3. Gemini Vision aufrufen
-        # Wir senden das Bild als Byte-Daten an die KI
+        
+        # KI-Aufruf
         response = client.models.generate_content(
             model='gemini-1.5-flash',
             contents=[
-                prompt,
+                "Extrahiere den Text aus diesem Bild als klare To-Do Liste. Antworte NUR mit dem Text.",
                 types.Part.from_bytes(
                     data=img_response.content,
                     mime_type='image/jpeg'
@@ -167,15 +152,11 @@ def scan_handwriting():
             ]
         )
 
-        extracted_text = response.text.strip()
-        logger.info("KI-Scan erfolgreich abgeschlossen.")
-
-        return {"text": extracted_text}
+        return {"text": response.text.strip()}
 
     except Exception as e:
-        logger.exception("Fehler beim KI-Scan.")
         return {"error": f"KI-Fehler: {str(e)}"}, 500
-
+    
 if __name__ == '__main__':
     # Nur für die lokale Entwicklung, Render verwendet Gunicorn
     app.run(debug=True)
