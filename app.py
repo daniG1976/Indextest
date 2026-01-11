@@ -18,12 +18,12 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 # Umgebungsvariable GOOGLE_API_KEY laden (von Render)
 GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', 'API_KEY_NOT_SET')
 GOOGLE_STT_ENDPOINT = f"https://speech.googleapis.com/v1/speech:recognize?key={GOOGLE_API_KEY}"
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+gemini_key_wert = os.environ.get('GEMINI_API_KEY')
 
 # --- NEU: Gemini Konfiguration (Moderne Bibliothek) ---
-if GEMINI_API_KEY:
+if gemini_key_wert:
     client = genai.Client(
-        api_key=GEMINI_API_KEY,  # Hier wird jetzt der richtige Key geladen
+        api_key=gemini_key_wert, # <--- Hier sagen wir: Nimm GENAU diesen!
         http_options={'api_version': 'v1'}
     )
 
