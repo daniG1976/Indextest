@@ -21,9 +21,9 @@ GOOGLE_STT_ENDPOINT = f"https://speech.googleapis.com/v1/speech:recognize?key={G
 # --- NEU: Gemini Konfiguration ---
 if GOOGLE_API_KEY != 'API_KEY_NOT_SET':
     # Hier erzwingen wir die Nutzung der stabilen v1 API
-    genai.configure(api_key=GOOGLE_API_KEY, transport='rest') 
+    genai.configure(api_key=GOOGLE_API_KEY, transport='rest') # <-- transport='rest' hinzufügen
     vision_model = genai.GenerativeModel('gemini-1.5-flash')
-# ---------------------------------
+    # ---------------------------------
 
 # Prüfen, ob der API-Schlüssel gesetzt ist
 API_KEY_VALID = GOOGLE_API_KEY != 'API_KEY_NOT_SET'
