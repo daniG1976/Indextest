@@ -204,7 +204,7 @@
             <div class="flex justify-center space-x-16 pt-2">
                 <!-- Mikrofon (Press-and-Hold) -->
                 <button id="record-button"
-                        class="w-14 h-14 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-[#fe7f2d] shadow-xl transition duration-150 disabled:opacity-50 flex items-center justify-center text-2xl active:recording-pulse touch-action-none"
+                        class="w-14 h-14 flex-shrink-0 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-[#fe7f2d] shadow-xl transition duration-150 disabled:opacity-50 flex items-center justify-center text-2xl active:recording-pulse touch-action-none"
                         title="Halten Sie die Maustaste gedrückt, um aufzunehmen">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 z-10">
                         <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
@@ -214,7 +214,7 @@
                 </button>
 
                 <button id="photo-button"
-                        class="w-14 h-14 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-[#fe7f2d] shadow-xl transition duration-150 flex items-center justify-center text-2xl"
+                        class="w-14 h-14 flex-shrink-0 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-[#fe7f2d] shadow-xl transition duration-150 flex items-center justify-center text-2xl"
                         title="Bilder hinzufügen">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
                         <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
@@ -223,7 +223,7 @@
                 </button>
 
                 <button id="scan-button"
-                    class="w-14 h-14 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-[#fe7f2d] shadow-xl transition duration-150 flex items-center justify-center text-2xl"
+                    class="w-14 h-14 flex-shrink-0 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-[#fe7f2d] shadow-xl transition duration-150 flex items-center justify-center text-2xl"
                     title="Handschrift scannen">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7">
                         <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
@@ -238,7 +238,7 @@
 
                 <!-- Add / Save Button (Primary Action - Plus Icon) -->
                 <button id="save-unified-button"
-                        class="w-16 h-16 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-[#fe7f2d] shadow-2xl transition duration-150 disabled:opacity-50 flex items-center justify-center text-5xl font-bold"
+                        class="w-16 h-16 flex-shrink-0 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-[#fe7f2d] shadow-2xl transition duration-150 disabled:opacity-50 flex items-center justify-center text-4xl font-bold"
                         title="Aufgabe speichern">
                     +
                 </button>
@@ -376,6 +376,7 @@
         let currentFiles = []; // Speichert die Blobs der aufgenommenen Bilder vor dem Speichern               
         let currentTaskData = { text: "", images: [] }; // Globaler Speicher für die aktuell gewählte Karte
         let isSending = false; 
+        let currentUploadedImages = [];
 
 
         const menuFab = document.getElementById('menu-fab-button');
@@ -629,20 +630,31 @@
             const files = Array.from(e.target.files);
             if (files.length > 0) {
                 for (const file of files) {
-                    // Bild komprimieren (nutzt deine vorhandene compressImage Funktion)
+                    // 1. Komprimieren
                     const compressedBlob = await compressImage(file);
                     currentFiles.push(compressedBlob);
                     
-                    // Neues Vorschaubild-Element erstellen
+                    // 2. Sofort-Upload für die KI
+                    const fileName = `temp-${Date.now()}.jpg`;
+                    const { data: uploadData } = await supabaseClient.storage
+                        .from('Photos')
+                        .upload(fileName, compressedBlob);
+
+                    if (uploadData) {
+                        const { data: urlData } = supabaseClient.storage
+                            .from('Photos')
+                            .getPublicUrl(fileName);
+                        
+                        // Hier speichern wir die URL für den Scan-Button!
+                        currentUploadedImages.push(urlData.publicUrl);
+                    }
+
+                    // 3. Vorschau anzeigen
                     const previewImg = document.createElement('img');
                     previewImg.src = URL.createObjectURL(compressedBlob);
                     previewImg.className = "w-12 h-12 object-cover rounded-lg border border-white/20 shadow-md";
-                    
-                    // In den Container einfügen
                     photoPreviewContainer.appendChild(previewImg);
                 }
-                
-                // Container-Styling anpassen, damit Bilder nebeneinander liegen
                 photoPreviewContainer.classList.remove('hidden');
                 photoPreviewContainer.classList.add('flex', 'flex-wrap', 'gap-2', 'mb-2');
             }
@@ -688,7 +700,7 @@
 
         // --- Handschrifterkennung (OCR) ---
         document.getElementById('scan-button').onclick = async function() {
-            const todoInput = document.getElementById('todo-input');
+            const todoInput = document.getElementById('unified-todo-input');
             const btn = this;
             const originalContent = btn.innerHTML;
 
