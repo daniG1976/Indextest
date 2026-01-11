@@ -20,8 +20,8 @@ GOOGLE_STT_ENDPOINT = f"https://speech.googleapis.com/v1/speech:recognize?key={G
 
 # --- NEU: Gemini Konfiguration ---
 if GOOGLE_API_KEY != 'API_KEY_NOT_SET':
-    genai.configure(api_key=GOOGLE_API_KEY)
-    # Wir nutzen das schnelle Flash-Modell für OCR
+    # Hier erzwingen wir die Nutzung der stabilen v1 API
+    genai.configure(api_key=GOOGLE_API_KEY, transport='rest') 
     vision_model = genai.GenerativeModel('gemini-1.5-flash')
 # ---------------------------------
 
