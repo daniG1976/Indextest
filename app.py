@@ -18,12 +18,12 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 # Umgebungsvariable GOOGLE_API_KEY laden (von Render)
 GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', 'API_KEY_NOT_SET')
 GOOGLE_STT_ENDPOINT = f"https://speech.googleapis.com/v1/speech:recognize?key={GOOGLE_API_KEY}"
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 
 # --- NEU: Gemini Konfiguration (Moderne Bibliothek) ---
-if GOOGLE_API_KEY != 'API_KEY_NOT_SET':
-    # WICHTIG: Wir erzwingen Version 'v1', damit der 404-Fehler verschwindet
+if GEMINI_API_KEY:
     client = genai.Client(
-        api_key=GOOGLE_API_KEY,
+        api_key=GEMINI_API_KEY,  # Hier wird jetzt der richtige Key geladen
         http_options={'api_version': 'v1'}
     )
 
@@ -142,7 +142,7 @@ def scan_handwriting():
         
         # KI-Aufruf
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='models/gemini-1.5-flash',
             contents=[
                 "Extrahiere den Text aus diesem Bild als klare To-Do Liste. Antworte NUR mit dem Text.",
                 types.Part.from_bytes(
