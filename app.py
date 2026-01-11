@@ -5,7 +5,8 @@ import base64
 from flask import Flask, request
 import requests
 import logging
-import google.generativeai as genai # NEU für Gemini
+from google import genai
+from google.genai import types
 
 # Konfiguration des Loggings
 logging.basicConfig(level=logging.INFO)
@@ -18,12 +19,11 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', 'API_KEY_NOT_SET')
 GOOGLE_STT_ENDPOINT = f"https://speech.googleapis.com/v1/speech:recognize?key={GOOGLE_API_KEY}"
 
-# --- NEU: Gemini Konfiguration ---
+# --- NEU: Gemini Konfiguration (Moderne Bibliothek) ---
 if GOOGLE_API_KEY != 'API_KEY_NOT_SET':
-    # Hier erzwingen wir die Nutzung der stabilen v1 API
-    genai.configure(api_key=GOOGLE_API_KEY, transport='rest') # <-- transport='rest' hinzufügen
-    vision_model = genai.GenerativeModel('gemini-1.5-flash')
-    # ---------------------------------
+    # Das ist alles! Der neue Client regelt den Rest (auch REST/gRPC) selbstständig.
+    client = genai.Client(api_key=GOOGLE_API_KEY)
+# ---------------------------------
 
 # Prüfen, ob der API-Schlüssel gesetzt ist
 API_KEY_VALID = GOOGLE_API_KEY != 'API_KEY_NOT_SET'
@@ -156,10 +156,16 @@ def scan_handwriting():
 
         # 3. Gemini Vision aufrufen
         # Wir senden das Bild als Byte-Daten an die KI
-        response = vision_model.generate_content([
-            prompt,
-            {"mime_type": "image/jpeg", "data": img_response.content}
-        ])
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=[
+                prompt,
+                types.Part.from_bytes(
+                    data=img_response.content,
+                    mime_type='image/jpeg'
+                )
+            ]
+        )
 
         extracted_text = response.text.strip()
         logger.info("KI-Scan erfolgreich abgeschlossen.")
