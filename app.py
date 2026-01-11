@@ -5,6 +5,7 @@ import base64
 from flask import Flask, request
 import requests
 import logging
+import google.generativeai as genai # NEU für Gemini
 
 # Konfiguration des Loggings
 logging.basicConfig(level=logging.INFO)
@@ -16,6 +17,13 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 # Umgebungsvariable GOOGLE_API_KEY laden (von Render)
 GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', 'API_KEY_NOT_SET')
 GOOGLE_STT_ENDPOINT = f"https://speech.googleapis.com/v1/speech:recognize?key={GOOGLE_API_KEY}"
+
+# --- NEU: Gemini Konfiguration ---
+if GOOGLE_API_KEY != 'API_KEY_NOT_SET':
+    genai.configure(api_key=GOOGLE_API_KEY)
+    # Wir nutzen das schnelle Flash-Modell für OCR
+    vision_model = genai.GenerativeModel('gemini-1.5-flash')
+# ---------------------------------
 
 # Prüfen, ob der API-Schlüssel gesetzt ist
 API_KEY_VALID = GOOGLE_API_KEY != 'API_KEY_NOT_SET'
@@ -117,6 +125,50 @@ def transcribe_audio():
     except Exception as e:
         logger.exception("Unerwarteter Fehler während der Transkription.")
         return {"error": f"Unerwarteter Fehler während der Transkription: {str(e)}"}, 500
+
+# --- NEU: BACKEND (Handschrift-Erkennung / OCR) ---
+@app.route('/scan-handwriting', methods=['POST'])
+def scan_handwriting():
+    """Empfängt eine Bild-URL und extrahiert Text via Gemini AI."""
+    if not API_KEY_VALID:
+        return {"error": "API-Schlüssel nicht gesetzt."}, 500
+
+    try:
+        data = request.get_json()
+        image_url = data.get('image_url')
+        
+        if not image_url:
+            return {"error": "Keine Bild-URL gefunden."}, 400
+
+        logger.info(f"Starte Scan für Bild: {image_url}")
+
+        # 1. Bild von Supabase/URL herunterladen
+        img_response = requests.get(image_url)
+        if img_response.status_code != 200:
+            return {"error": "Bild konnte nicht von der URL geladen werden."}, 400
+
+        # 2. Prompt für die KI definieren
+        prompt = (
+            "Analysiere dieses Bild. Es handelt sich um eine handgeschriebene oder gedruckte Notiz. "
+            "Extrahiere den Text und formatiere ihn als kurze, klare To-Do Liste. "
+            "Antworte NUR mit dem erkannten Text, keine Einleitung, keine Kommentare."
+        )
+
+        # 3. Gemini Vision aufrufen
+        # Wir senden das Bild als Byte-Daten an die KI
+        response = vision_model.generate_content([
+            prompt,
+            {"mime_type": "image/jpeg", "data": img_response.content}
+        ])
+
+        extracted_text = response.text.strip()
+        logger.info("KI-Scan erfolgreich abgeschlossen.")
+
+        return {"text": extracted_text}
+
+    except Exception as e:
+        logger.exception("Fehler beim KI-Scan.")
+        return {"error": f"KI-Fehler: {str(e)}"}, 500
 
 if __name__ == '__main__':
     # Nur für die lokale Entwicklung, Render verwendet Gunicorn

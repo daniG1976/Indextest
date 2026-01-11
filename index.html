@@ -222,9 +222,23 @@
                     </svg>
                 </button>
 
+                <button id="scan-button"
+                    class="w-14 h-14 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-[#fe7f2d] shadow-xl transition duration-150 flex items-center justify-center text-2xl"
+                    title="Handschrift scannen">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7">
+                        <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+                        <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                        <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+                        <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                        <path d="M7 8h8"/>
+                        <path d="M7 12h10"/>
+                        <path d="M7 16h6"/>
+                    </svg>
+                </button>
+
                 <!-- Add / Save Button (Primary Action - Plus Icon) -->
                 <button id="save-unified-button"
-                        class="w-14 h-14 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-[#fe7f2d] shadow-xl transition duration-150 disabled:opacity-50 flex items-center justify-center text-3xl font-bold"
+                        class="w-16 h-16 rounded-full bg-[#233d4d] hover:bg-[#3b5971] text-[#fe7f2d] shadow-2xl transition duration-150 disabled:opacity-50 flex items-center justify-center text-5xl font-bold"
                         title="Aufgabe speichern">
                     +
                 </button>
@@ -672,6 +686,72 @@
             });
         }
 
+        // --- Handschrifterkennung (OCR) ---
+        document.getElementById('scan-button').onclick = async function() {
+            const todoInput = document.getElementById('todo-input');
+            const btn = this;
+            const originalContent = btn.innerHTML;
+
+            // 1. Check: Wurde überhaupt ein Foto gemacht?
+            if (!currentUploadedImages || currentUploadedImages.length === 0) {
+                alert("Bitte mache erst ein Foto von deinem Zettel! 📸");
+                return;
+            }
+
+            try {
+                // 2. Button in Ladezustand versetzen
+                btn.disabled = true;
+                btn.innerHTML = '<div class="animate-spin h-6 w-6 border-2 border-[#fe7f2d] border-t-transparent rounded-full"></div>';
+
+                // 3. Das letzte hochgeladene Bild für den Scan nehmen
+                const lastImageUrl = currentUploadedImages[currentUploadedImages.length - 1];
+
+                // 4. Anfrage an deinen Render-Server senden
+                // WICHTIG: Da dein Frontend auf dem gleichen Server liegt, reicht '/scan-handwriting'
+                const response = await fetch('/scan-handwriting', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ image_url: lastImageUrl })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Scan fehlgeschlagen');
+                }
+
+                const data = await response.json();
+
+                // 5. Ergebnis verarbeiten
+                if (data.text) {
+                    // Falls schon Text im Feld steht, hängen wir den neuen Text mit Zeilenumbruch an
+                    if (todoInput.value.trim() !== "") {
+                        todoInput.value += "\n" + data.text;
+                    } else {
+                        todoInput.value = data.text;
+                    }
+                    
+                    // Visuelles Feedback
+                    todoInput.classList.add('bg-orange-500/20');
+                    setTimeout(() => todoInput.classList.remove('bg-orange-500/20'), 1000);
+                    
+                    // Fokus auf das Textfeld, damit man direkt bearbeiten kann
+                    todoInput.focus();
+                } else {
+                    alert("Die KI konnte leider keinen Text auf dem Bild finden.");
+                }
+
+            } catch (err) {
+                console.error("OCR Fehler:", err);
+                alert("Fehler beim Scannen: " + err.message);
+            } finally {
+                // 6. Button wieder zurücksetzen
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            }
+        };
+
         saveButton.addEventListener("click", async () => {
             const text = input.value.trim();
 
@@ -894,6 +974,22 @@
             }
         };
 
+        document.getElementById('cancel-email').onclick = function() {
+            const emailSheet = document.getElementById('email-sheet');
+            const container = document.getElementById('email-sheet-container');
+
+            container.classList.add('translate-y-full');
+
+            // OPTIONAL: Alle Karten wieder in die Neutralstellung schieben
+            document.querySelectorAll('.todo-card').forEach(card => {
+                card.style.transform = "translateX(0)";
+            });
+
+            setTimeout(() => {
+                emailSheet.classList.add('hidden');
+            }, 300);
+        };
+
         function enableInteract(wrapper, card, id, imageUrlArray){
             const bg = wrapper.querySelector('.swipe-action-bg');
             const iconComplete = bg.querySelector(`#icon-complete-${id}`);
@@ -923,6 +1019,14 @@
 
                 const emailSheet = document.getElementById('email-sheet');
                 const container = document.getElementById('email-sheet-container');
+                const emailInput = document.getElementById('recipient-email');
+
+                // NEU: Letzte E-Mail aus dem LocalStorage laden
+                const lastEmail = localStorage.getItem('lastRecipient');
+                if (lastEmail) {
+                    emailInput.value = lastEmail;
+                }
+
                 emailSheet.classList.remove('hidden');
                 setTimeout(() => container.classList.remove('translate-y-full'), 10);
 
