@@ -131,7 +131,7 @@ def scan_handwriting():
 
         # Die Anfrage an Groq (Vision-Modell)
         completion = groq_client.chat.completions.create(
-            model="llama-3.2-90b-vision-preview",
+            model="llama-3.2-90b-vision",
             messages=[
                 {
                     "role": "user",
