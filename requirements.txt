@@ -1,5 +1,5 @@
 flask
 requests
-groq
+openai
 google-cloud-speech
 gunicorn

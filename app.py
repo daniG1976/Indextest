@@ -5,7 +5,8 @@ import base64
 from flask import Flask, request, jsonify
 import requests
 import logging
-from groq import Groq
+import openai
+from openai import OpenAI
 
 # Konfiguration des Loggings
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +20,7 @@ GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', 'API_KEY_NOT_SET')
 GOOGLE_STT_ENDPOINT = f"https://speech.googleapis.com/v1/speech:recognize?key={GOOGLE_API_KEY}"
 API_KEY_VALID = GOOGLE_API_KEY != 'API_KEY_NOT_SET'
 
-groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 # --- FRONTEND (index.html) aus Datei laden ---
 @app.route('/')
@@ -120,39 +121,35 @@ def transcribe_audio():
         return {"error": f"Unerwarteter Fehler während der Transkription: {str(e)}"}, 500
 
 # --- NEU: BACKEND (Handschrift-Erkennung / OCR) ---
-@app.route('/scan-handwriting', methods=['POST'])
+app.route('/scan-handwriting', methods=['POST'])
 def scan_handwriting():
     try:
         data = request.json
         image_url = data.get('image_url')
 
         if not image_url:
-            return jsonify({"error": "Keine Bild-URL gefunden"}), 400
+            return jsonify({"error": "Keine Bild-URL"}), 400
 
-        # Die Anfrage an Groq (Vision-Modell)
-        completion = groq_client.chat.completions.create(
-            model="llama-3.2-90b-vision",
+        # GPT-4o mini ist extrem gut im Handschrift-Lesen
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Lies diese Handschrift auf dem Bild. Antworte NUR mit dem erkannten Text, keine Einleitung, keine Erklärungen."},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": image_url}
-                        }
-                    ]
+                        {"type": "text", "text": "Lies die Handschrift auf diesem Bild. Antworte NUR mit dem erkannten Text, ohne Kommentare."},
+                        {"type": "image_url", "image_url": {"url": image_url}}
+                    ],
                 }
             ],
-            temperature=0.1,
-            max_tokens=512
+            max_tokens=300,
         )
 
-        detected_text = completion.choices[0].message.content.strip()
+        detected_text = response.choices[0].message.content.strip()
         return jsonify({"text": detected_text})
 
     except Exception as e:
-        print(f"Groq Fehler: {str(e)}")
+        logger.error(f"OpenAI Fehler: {str(e)}")
         return jsonify({"error": str(e)}), 500
     
 if __name__ == '__main__':
