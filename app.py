@@ -121,16 +121,30 @@ def transcribe_audio():
         return {"error": f"Unerwarteter Fehler während der Transkription: {str(e)}"}, 500
 
 # --- NEU: BACKEND (Handschrift-Erkennung / OCR) ---
-app.route('/scan-handwriting', methods=['POST'])
+@app.route('/scan-handwriting', methods=['POST', 'OPTIONS'])
 def scan_handwriting():
+    # 1. Preflight-Check für iPhones/Safari
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     try:
-        data = request.json
+        data = request.get_json()
+        
+        # LOG 1: Zeig uns, was überhaupt ankommt
+        logger.info(f"Eingehende Daten: {data}")
+
+        if not data:
+            return jsonify({"error": "Ungültiges JSON erhalten"}), 400
+            
         image_url = data.get('image_url')
 
-        if not image_url:
-            return jsonify({"error": "Keine Bild-URL"}), 400
+        # LOG 2: Die spezifische Bild-URL prüfen
+        logger.info(f"Empfangene Bild-URL für Scan: {image_url}")
 
-        # GPT-4o mini ist extrem gut im Handschrift-Lesen
+        if not image_url:
+            return jsonify({"error": "Keine Bild-URL in den Daten gefunden"}), 400
+
+        # OpenAI Scan-Logik
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -146,10 +160,14 @@ def scan_handwriting():
         )
 
         detected_text = response.choices[0].message.content.strip()
+        
+        # LOG 3: Erfolg melden
+        logger.info(f"Scan erfolgreich! Erkannter Text: {detected_text[:50]}...")
+        
         return jsonify({"text": detected_text})
 
     except Exception as e:
-        logger.error(f"OpenAI Fehler: {str(e)}")
+        logger.error(f"Kritischer Fehler beim Scannen: {str(e)}")
         return jsonify({"error": str(e)}), 500
     
 if __name__ == '__main__':
