@@ -395,29 +395,30 @@
 
         // Diese Funktion ersetzt dein bisheriges lokales Erstellen
         async function fetchTodos() {
-            if (isDeleting) return; // Nicht laden, während wir gerade löschen!
-            // Der "v" Parameter ist ein Trick: Er macht die URL für den Browser jedes Mal 
-            // "neu", sodass er nicht aus dem Cache laden kann.
+            if (isDeleting) return; 
+
             const { data, error } = await supabaseClient
                 .from('todos')
                 .select('*')
-                .order('position', { ascending: true });
+                // Erst nach Position, dann nach Erstellungsdatum sortieren
+                .order('position', { ascending: true })
+                .order('created_at', { ascending: true });
 
             if (error) {
                 console.error("Fehler:", error);
                 return;
             }
 
-            // Radikales Leeren der Liste
-            todoList.innerHTML = "";
-
             if (data) {
-                // Falls du am Desktop/Laptop testest, siehst du hier die Wahrheit:
-                console.table(data.map(d => ({text: d.text, pos: d.position})));
+                // Die Liste im UI leeren
+                todoList.innerHTML = "";
                 
+                // Jedes Todo erstellen
                 data.forEach(todo => {
                     createTodoCard(todo.text, todo.id, todo.created_at, todo.image_url);
                 });
+                
+                console.log("Liste erfolgreich sortiert geladen.");
             }
         }
 

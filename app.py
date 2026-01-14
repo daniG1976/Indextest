@@ -2,11 +2,10 @@ import os
 import io
 import json
 import base64
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import requests
 import logging
-from google import genai
-from google.genai import types
+from groq import Groq
 
 # Konfiguration des Loggings
 logging.basicConfig(level=logging.INFO)
@@ -18,17 +17,9 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 # Umgebungsvariable GOOGLE_API_KEY laden (von Render)
 GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', 'API_KEY_NOT_SET')
 GOOGLE_STT_ENDPOINT = f"https://speech.googleapis.com/v1/speech:recognize?key={GOOGLE_API_KEY}"
-secret_key = os.environ.get('MY_SECRET_SCAN_KEY')
-
-# --- NEU: Gemini Konfiguration (Moderne Bibliothek) ---
-if secret_key:
-    client = genai.Client(
-        api_key=secret_key, # Hier übergeben wir ihn manuell
-        http_options={'api_version': 'v1'}
-    )
-
-# Prüfen, ob der API-Schlüssel gesetzt ist
 API_KEY_VALID = GOOGLE_API_KEY != 'API_KEY_NOT_SET'
+
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 # --- FRONTEND (index.html) aus Datei laden ---
 @app.route('/')
@@ -132,30 +123,37 @@ def transcribe_audio():
 @app.route('/scan-handwriting', methods=['POST'])
 def scan_handwriting():
     try:
-        data = request.get_json()
+        data = request.json
         image_url = data.get('image_url')
-        if not image_url:
-            return {"error": "Keine Bild-URL gefunden."}, 400
 
-        # Bild laden
-        img_response = requests.get(image_url)
-        
-        # KI-Aufruf
-        response = client.models.generate_content(
-            model='models/gemini-1.5-flash',
-            contents=[
-                "Extrahiere den Text aus diesem Bild als klare To-Do Liste. Antworte NUR mit dem Text.",
-                types.Part.from_bytes(
-                    data=img_response.content,
-                    mime_type='image/jpeg'
-                )
-            ]
+        if not image_url:
+            return jsonify({"error": "Keine Bild-URL gefunden"}), 400
+
+        # Die Anfrage an Groq (Vision-Modell)
+        completion = groq_client.chat.completions.create(
+            model="llama-3.2-11b-vision-preview", # Das Modell für Bilder
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Lies diese Handschrift auf dem Bild. Antworte NUR mit dem erkannten Text, keine Einleitung, keine Erklärungen."},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": image_url}
+                        }
+                    ]
+                }
+            ],
+            temperature=0.1,
+            max_tokens=512
         )
 
-        return {"text": response.text.strip()}
+        detected_text = completion.choices[0].message.content.strip()
+        return jsonify({"text": detected_text})
 
     except Exception as e:
-        return {"error": f"KI-Fehler: {str(e)}"}, 500
+        print(f"Groq Fehler: {str(e)}")
+        return jsonify({"error": str(e)}), 500
     
 if __name__ == '__main__':
     # Nur für die lokale Entwicklung, Render verwendet Gunicorn
