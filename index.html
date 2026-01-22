@@ -12,11 +12,14 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js"></script>
     <script>
     (function() {
         emailjs.init("dSOZMCQs7JAmYkVao"); 
     })();
-</script>
+    </script>
     <title>To Do</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -112,6 +115,62 @@
         }
         .input-error::placeholder {
             color: #ef4444;
+        }
+
+        /* Grundhintergrund des Kalenders */
+        .flatpickr-calendar {
+            background: #1a2e3a !important; /* Dein dunkles Blau */
+            border: 1px solid #fe7f2d !important; /* Orangener Rahmen */
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+            font-family: 'Gloria Hallelujah', cursive !important;
+        }
+
+        /* Kopfzeile (Monat & Jahr) */
+        .flatpickr-current-month, .flatpickr-month {
+            color: #fe7f2d !important;
+            fill: #fe7f2d !important;
+        }
+
+        /* Wochentage (Mo, Di, Mi...) */
+        span.flatpickr-weekday {
+            color: #fe7f2d !important;
+            opacity: 0.8;
+        }
+
+        /* Die einzelnen Tage */
+        .flatpickr-day {
+            color: #ffffff !important;
+        }
+
+        /* Heute-Markierung */
+        .flatpickr-day.today {
+            border-color: #fe7f2d !important;
+        }
+
+        /* Ausgewählter Tag & Hover */
+        .flatpickr-day.selected, 
+        .flatpickr-day.selected:hover, 
+        .flatpickr-day:hover {
+            background: #fe7f2d !important;
+            border-color: #fe7f2d !important;
+            color: #233d4d !important; /* Dein dunkles Blau für den Kontrast */
+        }
+
+        /* Uhrzeit-Bereich */
+        .flatpickr-time input, .flatpickr-time .flatpickr-time-separator, .flatpickr-time .flatpickr-am-pm {
+            color: #fe7f2d !important;
+            font-family: 'Gloria Hallelujah', cursive !important;
+        }
+
+        /* Pfeile für Monat vor/zurück */
+        .flatpickr-prev-month, .flatpickr-next-month {
+            color: #fe7f2d !important;
+            fill: #fe7f2d !important;
+        }
+
+        /* Hover auf Pfeilen */
+        .flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg {
+            fill: #ffffff !important;
         }
         
     </style>
@@ -267,6 +326,57 @@
         </div>
     </div>
 
+    <div id="calendar-sheet" class="fixed inset-0 bg-black/40 z-[2000] hidden">
+        <div id="calendar-sheet-container" class="absolute bottom-0 left-0 right-0 bg-[#233d4d]/30 backdrop-blur-md rounded-t-3xl p-6 transform translate-y-full transition-transform duration-300">
+            <div class="w-12 h-1.5 bg-gray-500/30 rounded-full mx-auto mb-6"></div>
+            
+            <div id="calendar-main-content">
+                <h3 class="text-[#fe7f2d] text-xl font-bold font-gloria mb-2">🗓️ Termin planen für:</h3>
+                <p id="calendar-task-preview" class="text-[#fe7f2d] font-bold mb-6 truncate font-gloria text-lg"></p>
+
+                <div class="space-y-4">
+                    <div class="relative h-14 w-full">
+                        <input type="text" id="dateTimePicker" 
+                            class="w-full h-full bg-[#1a2e3a] border-none rounded-xl p-3 text-[#fe7f2d] font-gloria text-center outline-none text-lg cursor-pointer"
+                            placeholder="Datum & Uhrzeit wählen">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mt-4 relative">
+                        <button id="iphone-cal-btn" 
+                            class="flex items-center justify-center gap-2 bg-[#fe7f2d] text-[#233d4d] h-14 rounded-xl font-bold font-gloria active:scale-95 transition-transform text-sm">
+                            iPhone
+                        </button>
+                        
+                        <div class="relative h-14">
+                            <button id="outlook-cal-btn" 
+                                class="absolute inset-0 flex items-center justify-center gap-2 bg-[#fe7f2d] text-[#233d4d] rounded-xl font-bold font-gloria active:scale-95 transition-all duration-300 text-sm z-10">
+                                Outlook
+                            </button>
+                            
+                            <div id="email-input-container" 
+                                class="absolute inset-0 flex items-center bg-[#1a2e3a] border border-[#fe7f2d] rounded-xl px-2 opacity-0 pointer-events-none transition-all duration-300 z-20">
+                                <input type="email" id="cal-recipient-email" 
+                                    class="flex-1 bg-transparent border-none text-[#fe7f2d] font-gloria text-[11px] outline-none px-1"
+                                    placeholder="E-Mail eingeben...">
+                                <button id="confirm-outlook-send" class="text-[#fe7f2d] p-2 active:scale-90 transition-transform text-lg">
+                                    ➔
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-center mt-2">
+                        <button onclick="closeCalendarSheet()" class="text-[#fe7f2d] font-bold font-gloria py-2 text-sm opacity-80 hover:opacity-100">Abbrechen</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="calendar-success-anim" class="hidden absolute inset-0 bg-[#233d4d] rounded-t-3xl flex flex-col items-center justify-center text-white z-50">
+                <div class="text-6xl mb-2 animate-bounce">🗓️</div>
+                <p class="font-bold font-gloria text-[#fe7f2d]">Termin steht!</p>
+            </div>
+        </div>
+    </div>
     <div class="fixed bottom-6 right-6 flex flex-col items-end z-[900]">    
         <div id="fab-menu-options" class="flex flex-col items-end gap-3 mb-4 hidden opacity-0 translate-y-4 transition-all duration-300">
             
@@ -841,26 +951,23 @@
 
             // Hintergrund (Icons) bleibt gleich
             const bg = document.createElement("div");
-            bg.className = "swipe-action-bg absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-200";
-            bg.style.display = "grid";
-            bg.style.gridTemplateColumns = "2fr 1fr 1fr";
-            bg.style.height = "100%"; 
+            // grid-cols-4 teilt den Platz in 4 exakte Viertel auf
+            bg.className = "swipe-action-bg absolute inset-0 rounded-2xl opacity-0 grid grid-cols-4 items-center justify-items-center overflow-hidden";
+            bg.style.transition = "opacity 0.2s";
             bg.innerHTML = `
-                <div class="flex items-center h-full pl-8"> 
-                    <div id="icon-complete-${id}" class="opacity-0 transition-opacity duration-200">
-                        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    </div>
+                <div id="icon-complete-${id}" class="opacity-0 transition-all duration-200">
+                    <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <div class="flex justify-center items-center h-full">
-                    <div id="icon-mail-${id}" class="opacity-0 transition-opacity duration-200">
-                        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m0 8H3V8a2 2 0 012-2h14a2 2 0 012 2v8z"/></svg>
-                    </div>
+                <div id="icon-cal-${id}" class="opacity-0 transition-all duration-200">
+                    <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                 </div>
-                <div class="flex justify-center items-center h-full">
-                    <div id="icon-delete-${id}" class="opacity-0 transition-opacity duration-200">
-                        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 6v14H5V6h14zm-7-3h0a2 2 0 012 2v0H10V5a2 2 0 012-2z"/></svg>
-                    </div>
-                </div>`;
+                <div id="icon-mail-${id}" class="opacity-0 transition-all duration-200">
+                    <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m0 8H3V8a2 2 0 012-2h14a2 2 0 012 2v8z"/></svg>
+                </div>
+                <div id="icon-delete-${id}" class="opacity-0 transition-all duration-200">
+                    <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 6v14H5V6h14zm-7-3h0a2 2 0 012 2v0H10V5a2 2 0 012-2z"/></svg>
+                </div>
+            `;
 
             const card = document.createElement("div");
             card.id = `card-${id}`;
@@ -1003,56 +1110,58 @@
             }, 300);
         };
 
-        function enableInteract(wrapper, card, id, imageUrlArray){
+        function enableInteract(wrapper, card, id, imageUrlArray) {
             const bg = wrapper.querySelector('.swipe-action-bg');
             const iconComplete = bg.querySelector(`#icon-complete-${id}`);
+            const iconCal = bg.querySelector(`#icon-cal-${id}`);
             const iconMail = bg.querySelector(`#icon-mail-${id}`);
             const iconDelete = bg.querySelector(`#icon-delete-${id}`);
             
-            iconMail.style.pointerEvents = "auto";
-            iconDelete.style.pointerEvents = "auto";
-            
             let startX, startY, currentX = 0, intent = null;
             const SNAP_LEFT = -180; 
-            const MAX_LEFT = -200;
+            const SNAP_RIGHT = 180; 
 
-            bg.style.display = "grid";
-            bg.style.gridTemplateColumns = "2fr 1fr 1fr";
+            // Icons klickbar machen
+            [iconComplete, iconCal, iconMail, iconDelete].forEach(icon => {
+                if (icon) icon.style.pointerEvents = "auto";
+            });
 
-            // E-Mail Icon Klick
-            iconMail.addEventListener('pointerdown', (e) => {
+            // --- KLICK-LOGIK RECHTS ---
+            iconComplete?.addEventListener('pointerdown', (e) => {
                 e.stopPropagation();
-                e.preventDefault();
-                
-                // Befüllt die Daten für den Button oben
-                currentTaskData = {
-                    text: card.querySelector('p').innerText.trim(),
-                    images: (typeof imageUrlArray !== 'undefined') ? imageUrlArray : []
-                };
+                triggerHaptic('success');
+                handleSwipeAction(id, "complete");
+            });
 
-                const emailSheet = document.getElementById('email-sheet');
-                const container = document.getElementById('email-sheet-container');
-                const emailInput = document.getElementById('recipient-email');
-
-                // NEU: Letzte E-Mail aus dem LocalStorage laden
-                const lastEmail = localStorage.getItem('lastRecipient');
-                if (lastEmail) {
-                    emailInput.value = lastEmail;
-                }
-
-                emailSheet.classList.remove('hidden');
-                setTimeout(() => container.classList.remove('translate-y-full'), 10);
-
+            iconCal?.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                triggerHaptic('medium');
+                openCalendar(card.querySelector('p').innerText);
                 card.style.transition = "0.3s ease";
                 card.style.transform = "translateX(0)";
                 setTimeout(() => { bg.style.opacity = 0; }, 300);
             });
 
-            // Lösch Icon Klick
-            iconDelete.addEventListener('pointerdown', async (e) => {
+            // --- KLICK-LOGIK LINKS ---
+            iconMail?.addEventListener('pointerdown', (e) => {
                 e.stopPropagation();
-                e.preventDefault();
-                
+                currentTaskData = {
+                    text: card.querySelector('p').innerText.trim(),
+                    images: imageUrlArray || []
+                };
+                const emailSheet = document.getElementById('email-sheet');
+                const container = document.getElementById('email-sheet-container');
+                const lastEmail = localStorage.getItem('lastRecipient');
+                if (lastEmail) document.getElementById('recipient-email').value = lastEmail;
+                emailSheet.classList.remove('hidden');
+                setTimeout(() => container.classList.remove('translate-y-full'), 10);
+                card.style.transition = "0.3s ease";
+                card.style.transform = "translateX(0)";
+                setTimeout(() => { bg.style.opacity = 0; }, 300);
+            });
+
+            iconDelete?.addEventListener('pointerdown', async (e) => {
+                e.stopPropagation();
                 const { error } = await supabaseClient.from('todos').delete().eq('id', id);
                 if (!error) {
                     wrapper.style.transition = "all 0.4s ease";
@@ -1062,7 +1171,7 @@
                 }
             });
 
-            // --- Swipe & Sortier Logik (Dein Original) ---
+            // --- BEWEGUNGS-LOGIK ---
             const onMove = (e) => {
                 const x = e.clientX || (e.touches && e.touches[0].clientX);
                 const y = e.clientY || (e.touches && e.touches[0].clientY);
@@ -1072,21 +1181,33 @@
 
                 if (!intent || intent === 'waiting') {
                     if (Math.abs(dx) > 10) intent = 'swipe';
-                    else if (Math.abs(dy) > 10 && intent === 'sort') {} 
+                    else if (Math.abs(dy) > 10 && e.target.closest('.drag-handle')) intent = 'sort';
                     else return;
                 }
 
                 if (intent === 'swipe') {
-                    currentX = Math.max(MAX_LEFT, Math.min(250, dx));
+                    currentX = Math.max(-220, Math.min(220, dx));
                     card.style.transform = `translateX(${currentX}px)`;
                     bg.style.opacity = 1;
-                    bg.style.background = "linear-gradient(to right, #16a34a 0%, #16a34a 50%, #3b82f6 50%, #3b82f6 75%, #dc2626 75%, #dc2626 100%)";
-                    if (currentX > 20) {
-                        iconComplete.style.opacity = 1; iconMail.style.opacity = 0; iconDelete.style.opacity = 0;
-                    } else if (currentX < -20) {
-                        iconComplete.style.opacity = 0;
-                        if (currentX < -140) { iconDelete.style.opacity = 1; iconMail.style.opacity = 0.3; } 
-                        else { iconDelete.style.opacity = 0.3; iconMail.style.opacity = 1; }
+
+                    if (currentX > 0) {
+                        // RECHTS-SWIPE: Grün (0-25%), Lila (25-50%)
+                        bg.style.background = "linear-gradient(to right, #16a34a 0%, #16a34a 25%, #a855f7 25%, #a855f7 50%, transparent 50%)";
+                        if (currentX > 140) {
+                            iconComplete.style.opacity = 1; iconCal.style.opacity = 0.3;
+                        } else {
+                            iconComplete.style.opacity = 0.3; iconCal.style.opacity = 1;
+                        }
+                        iconMail.style.opacity = 0; iconDelete.style.opacity = 0;
+                    } else {
+                        // LINKS-SWIPE: Blau (50-75%), Rot (75-100%)
+                        bg.style.background = "linear-gradient(to right, transparent 50%, #3b82f6 50%, #3b82f6 75%, #dc2626 75%, #dc2626 100%)";
+                        if (currentX < -140) {
+                            iconDelete.style.opacity = 1; iconMail.style.opacity = 0.3;
+                        } else {
+                            iconDelete.style.opacity = 0.3; iconMail.style.opacity = 1;
+                        }
+                        iconComplete.style.opacity = 0; iconCal.style.opacity = 0;
                     }
                 } else if (intent === 'sort') {
                     const rect = wrapper.getBoundingClientRect();
@@ -1109,18 +1230,18 @@
             const onUp = async () => {
                 document.removeEventListener('pointermove', onMove);
                 document.removeEventListener('pointerup', onUp);
+                
                 if (intent === 'swipe') {
                     card.style.transition = "0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28)";
-                    if (currentX > 160) {
-                        triggerHaptic('success'); 
-                        card.style.transform = "translateX(600px)";
-                        setTimeout(() => { handleSwipeAction(id, "complete"); }, 200);
+                    if (currentX > 60) {
+                        triggerHaptic('light');
+                        card.style.transform = `translateX(${SNAP_RIGHT}px)`;
                     } else if (currentX < -60) {
                         triggerHaptic('light');
                         card.style.transform = `translateX(${SNAP_LEFT}px)`;
                     } else {
                         card.style.transform = "translateX(0)";
-                        setTimeout(() => { if (!intent) bg.style.opacity = 0; }, 300);
+                        setTimeout(() => { bg.style.opacity = 0; }, 300);
                     }
                 } else if (intent === 'sort') {
                     triggerHaptic('light');
@@ -1132,7 +1253,7 @@
             };
 
             card.addEventListener('pointerdown', (e) => {
-                if (e.target.closest('.swipe-action-bg')) return;
+                if (e.target.closest('.swipe-action-bg') || e.target.tagName === 'IMG') return;
                 startX = e.clientX; startY = e.clientY;
                 card.style.transition = "none";
                 intent = e.target.closest('.drag-handle') ? 'sort' : 'waiting';
@@ -1141,6 +1262,150 @@
             });
         }
 
+        let currentTaskForCal = "";
+        let fp; // Flatpickr Instanz
+
+        // 1. Flatpickr Initialisierung
+        document.addEventListener('DOMContentLoaded', () => {
+            fp = flatpickr("#dateTimePicker", {
+                enableTime: true,
+                dateFormat: "d.m.Y, H:i",
+                time_24hr: true,
+                locale: "de",
+                minuteIncrement: 5,
+                disableMobile: "true" 
+            });
+        });
+
+        // 2. Modal öffnen
+        function openCalendar(taskText) {
+            currentTaskForCal = taskText;
+            const preview = document.getElementById('calendar-task-preview');
+            if (preview) preview.innerText = taskText;
+
+            // Setzt Datum auf Jetzt + 1 Stunde
+            const defaultDate = new Date();
+            defaultDate.setHours(defaultDate.getHours() + 1);
+            fp.setDate(defaultDate);
+
+            // RESET: Outlook Button zeigen, E-Mail-Feld verstecken
+            document.getElementById('outlook-cal-btn').classList.remove('opacity-0', 'pointer-events-none');
+            document.getElementById('email-input-container').classList.add('opacity-0', 'pointer-events-none');
+
+            // Modal Animation
+            document.getElementById('calendar-sheet').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('calendar-sheet-container').classList.remove('translate-y-full');
+            }, 10);
+        }
+
+        // 3. Modal schließen & Erfolg
+        function closeCalendarSheet() {
+            const container = document.getElementById('calendar-sheet-container');
+            container.classList.add('translate-y-full');
+            setTimeout(() => {
+                document.getElementById('calendar-sheet').classList.add('hidden');
+            }, 300);
+        }
+
+        function showCalendarSuccess() {
+            const anim = document.getElementById('calendar-success-anim');
+            anim.classList.remove('hidden');
+            setTimeout(() => {
+                closeCalendarSheet();
+                setTimeout(() => anim.classList.add('hidden'), 300);
+            }, 1500);
+        }
+
+        function getCombinedDateTime() {
+            return fp.selectedDates[0] || new Date();
+        }
+
+        // 4. IPHONE EXPORT (Lokal)
+        document.getElementById('iphone-cal-btn').addEventListener('click', () => {
+            const start = getCombinedDateTime();
+            const end = new Date(start.getTime() + 30 * 60000);
+            const formatDate = (d) => d.toISOString().replace(/-|:|\.\d+/g, "");
+            
+            const icsContent = [
+                "BEGIN:VCALENDAR", "VERSION:2.0", "BEGIN:VEVENT",
+                `DTSTART:${formatDate(start)}`,
+                `DTEND:${formatDate(end)}`,
+                `SUMMARY:${currentTaskForCal}`,
+                "END:VEVENT", "END:VCALENDAR"
+            ].join("\r\n");
+
+            const blob = new Blob([icsContent], {type: 'text/calendar;charset=utf-8'});
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = 'termin.ics';
+            link.click();
+            showCalendarSuccess();
+        });
+
+        // 5. OUTLOOK LOGIK (TRANSFORMATION & SENDEN MIT PROFI-LINK)
+
+        const outlookBtn = document.getElementById('outlook-cal-btn');
+        const emailContainer = document.getElementById('email-input-container');
+        const calEmailInput = document.getElementById('cal-recipient-email');
+
+        // Schritt A: Outlook Button klicken -> Verwandlung in Input
+        outlookBtn.addEventListener('click', () => {
+            calEmailInput.value = localStorage.getItem('lastRecipient') || "";
+            outlookBtn.classList.add('opacity-0', 'pointer-events-none');
+            emailContainer.classList.remove('opacity-0', 'pointer-events-none');
+            calEmailInput.focus();
+        });
+
+        // Schritt B: Senden via EmailJS
+        document.getElementById('confirm-outlook-send').addEventListener('click', async () => {
+            const email = calEmailInput.value.trim();
+            
+            if (!email.includes('@') || email.length < 5) {
+                alert("Bitte gib eine gültige E-Mail Adresse ein.");
+                return;
+            }
+
+            const start = getCombinedDateTime();
+            const end = new Date(start.getTime() + 30 * 60000); // +30 Min Dauer
+            
+            // Formatierung für die Textanzeige
+            const germanString = start.toLocaleString('de-DE', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+
+            // Formatierung für den ics.ag Link (YYYYMMDDTHHMMSSZ)
+            const formatICS = (d) => d.toISOString().replace(/-|:|\.\d+/g, "");
+            
+            // Erstellung des Profi-Links
+            const eventTitle = encodeURIComponent(currentTaskForCal);
+            const icsLink = `https://ics.ag/ical/?title=${eventTitle}&start=${formatICS(start)}&end=${formatICS(end)}`;
+
+            localStorage.setItem('lastRecipient', email);
+
+            const templateParams = {
+                to_email: email, 
+                subject: `📅 Termin: ${currentTaskForCal}`,
+                message: `Aufgabe: ${currentTaskForCal}\nZeitpunkt: ${germanString} Uhr\n\nKlicke auf den folgenden Link, um den Termin direkt in deinen Kalender (Outlook, Google, Apple) zu speichern:\n\n${icsLink}\n\n`
+            };
+
+            try {
+                await emailjs.send('service_p1o2ghl', 'template_bz12gsg', templateParams);
+                showCalendarSuccess();
+            } catch (e) { 
+                console.error("EmailJS Fehler:", e);
+                alert("Fehler beim Senden.");
+            }
+        });
+
+        // Enter-Taste im E-Mail-Feld
+        calEmailInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('confirm-outlook-send').click();
+            }
+        });
+ 
         // --- Audio Logik (Unverändert übernommen) ---
         async function transcribeAudio(base64Audio, mimeType) {
             input.value = "Verarbeitung läuft... ☕";
